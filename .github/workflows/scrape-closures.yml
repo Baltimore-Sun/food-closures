@@ -27,10 +27,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
 
@@ -43,18 +43,25 @@ jobs:
             --mode "${{ inputs.mode }}" \
             --days "${{ inputs.days }}" \
             --output data/closures.csv \
+            --warnings-output data/closures_warnings.txt \
             --verbose
 
-      - name: Commit and push if the CSV changed
+      - name: Commit and push if data changed
         run: |
-          if git diff --quiet -- data/closures.csv; then
-            echo "No changes to data/closures.csv; nothing to commit."
+          # Stage both files first, then diff the index against HEAD.
+          # A plain `git diff` (no --cached) never reports anything for a
+          # brand-new, never-committed file, so it would silently skip the
+          # very first run. Staging first makes new and modified files
+          # show up the same way.
+          git add data/closures.csv data/closures_warnings.txt
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
             exit 0
           fi
 
           row_count=$(($(wc -l < data/closures.csv) - 1))
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/closures.csv
           git commit -m "Update closures data (mode=${{ inputs.mode }}, days=${{ inputs.days }}, rows=${row_count})"
           git push
