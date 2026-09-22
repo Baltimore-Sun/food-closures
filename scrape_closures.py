@@ -93,6 +93,28 @@ class ClosureRow:
     date_of_closure: Optional[date]
 
 
+class _WarningCollector(logging.Handler):
+    """
+    Collects formatted WARNING+ log records emitted during a run, so they
+    can be written out to a companion .txt file alongside the CSV (e.g.
+    unparseable dates, ragged rows). Errors that abort the run entirely
+    (fetch failure, table not found) are not part of this -- those already
+    stop the script with a non-zero exit code and a logged error.
+    """
+
+    def __init__(self, level: int = logging.WARNING) -> None:
+        super().__init__(level=level)
+        self.setFormatter(
+            logging.Formatter(
+                "%(asctime)s %(levelname)-7s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+            )
+        )
+        self.records: list[str] = []
+
+    def emit(self, record: logging.LogRecord) -> None:
+        self.records.append(self.format(record))
+
+
 def fetch_html(url: str = SOURCE_URL, timeout: int = REQUEST_TIMEOUT_SECONDS) -> str:
     """Download the page HTML. Raises FetchError on any failure."""
     try:
@@ -303,31 +325,85 @@ def write_csv(headers: list[str], rows: list[ClosureRow], output_path: str) -> N
     log.info("Wrote %d row(s) to %s", len(rows), output_path)
 
 
+def _default_warnings_path(csv_output_path: str) -> str:
+    root, _ext = os.path.splitext(csv_output_path)
+    return f"{root}_warnings.txt"
+
+
+def write_warnings_file(
+    records: list[str], path: str, mode: str, days: int, source_url: str
+) -> None:
+    """
+    Write a plain-text summary of any WARNING+ messages from the run (e.g.
+    unparseable dates, ragged rows) to `path`, overwriting it each time --
+    this is a rolling snapshot describing the most recent run, not a log
+    that accumulates. Always writes the file, even when there were no
+    warnings, so its absence never has to be interpreted as "no warnings
+    checked yet" vs. "not run".
+    """
+    parent_dir = os.path.dirname(path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+    lines = [
+        f"Scrape run: {datetime.now().isoformat(timespec='seconds')}",
+        f"Source: {source_url}",
+        f"Mode: {mode}" + (f" (days={days})" if mode == "recent" else ""),
+        "",
+    ]
+    if records:
+        lines.append(f"{len(records)} warning(s):")
+        lines.extend(records)
+    else:
+        lines.append("No warnings for this run.")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    log.info("Wrote warnings file to %s", path)
+
+
 def run(
     mode: str = "recent",
     days: int = DEFAULT_WINDOW_DAYS,
     output_path: Optional[str] = None,
     url: str = SOURCE_URL,
     reference_date: Optional[date] = None,
+    warnings_output_path: Optional[str] = None,
 ) -> str:
     """
     Orchestrates fetch -> find table -> parse -> (optionally filter) -> write.
     Returns the output path used. Raises ScraperError subclasses on failure.
+
+    On success, also writes a companion .txt file listing any WARNING-level
+    messages logged during the run (unparseable dates, ragged rows, etc.).
+    On failure (fetch error / table not found), no CSV or warnings file is
+    written -- the run already stops with a logged error and non-zero exit.
     """
     if output_path is None:
         output_path = "closures_full.csv" if mode == "full" else "closures_recent.csv"
+    if warnings_output_path is None:
+        warnings_output_path = _default_warnings_path(output_path)
 
-    html = fetch_html(url)
-    soup = BeautifulSoup(html, "html.parser")
-    table = find_target_table(soup)
-    headers, rows = parse_table(table)
+    collector = _WarningCollector()
+    log.addHandler(collector)
+    try:
+        html = fetch_html(url)
+        soup = BeautifulSoup(html, "html.parser")
+        table = find_target_table(soup)
+        headers, rows = parse_table(table)
 
-    if mode == "full":
-        selected = rows
-    else:
-        selected = filter_recent(rows, days=days, reference_date=reference_date)
+        if mode == "full":
+            selected = rows
+        else:
+            selected = filter_recent(rows, days=days, reference_date=reference_date)
 
-    write_csv(headers, selected, output_path)
+        write_csv(headers, selected, output_path)
+    finally:
+        log.removeHandler(collector)
+
+    write_warnings_file(
+        collector.records, warnings_output_path, mode=mode, days=days, source_url=url
+    )
     return output_path
 
 
@@ -353,6 +429,13 @@ def build_arg_parser() -> argparse.ArgumentParser:
         default=None,
         help="Output CSV path. Defaults to closures_recent.csv or "
              "closures_full.csv depending on --mode.",
+    )
+    parser.add_argument(
+        "--warnings-output",
+        default=None,
+        help="Path for the warnings .txt file. Defaults to <output>, with "
+             "its extension replaced by '_warnings.txt' (e.g. "
+             "data/closures.csv -> data/closures_warnings.txt).",
     )
     parser.add_argument(
         "--url",
@@ -382,6 +465,7 @@ def main(argv: Optional[list[str]] = None) -> int:
             days=args.days,
             output_path=args.output,
             url=args.url,
+            warnings_output_path=args.warnings_output,
         )
     except FetchError as exc:
         log.error(str(exc))
