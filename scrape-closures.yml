@@ -1,0 +1,60 @@
+name: Scrape Food Establishment Closures
+
+# Manual trigger only. Go to Actions -> Scrape Food Establishment Closures
+# -> Run workflow to run it, optionally overriding mode/days.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "recent = rolling window (overwrites CSV with just that window); full = entire table"
+        required: true
+        type: choice
+        options:
+          - recent
+          - full
+        default: recent
+      days:
+        description: "Window size in days for mode=recent"
+        required: true
+        default: "14"
+
+# Needed so the workflow can push the updated CSV back to the repo.
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scraper
+        run: |
+          python scrape_closures.py \
+            --mode "${{ inputs.mode }}" \
+            --days "${{ inputs.days }}" \
+            --output data/closures.csv \
+            --verbose
+
+      - name: Commit and push if the CSV changed
+        run: |
+          if git diff --quiet -- data/closures.csv; then
+            echo "No changes to data/closures.csv; nothing to commit."
+            exit 0
+          fi
+
+          row_count=$(($(wc -l < data/closures.csv) - 1))
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/closures.csv
+          git commit -m "Update closures data (mode=${{ inputs.mode }}, days=${{ inputs.days }}, rows=${row_count})"
+          git push
