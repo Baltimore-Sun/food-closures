@@ -52,7 +52,12 @@
 
   /* Solid-dot marker (custom divIcon; visual is small, but the icon's
      own box is 44x44 so the tap/click target stays touch-friendly) */
-  .cd-marker { position: relative; width: 44px; height: 44px; }
+  /* NOTE: no "position" here on purpose. Leaflet positions every marker
+     with position:absolute + a transform; overriding that (e.g. with
+     position:relative) makes markers stack in normal flow and drift
+     away from their true coordinates. Leaflet's absolute positioning
+     already serves as the containing block for the .cd-dot child. */
+  .cd-marker { width: 44px; height: 44px; }
   .cd-marker .cd-dot {
     position: absolute; top: 50%; left: 50%;
     width: 16px; height: 16px; margin: -8px 0 0 -8px;
@@ -329,7 +334,10 @@
           marker.bindPopup(buildPopupHtml(p.row), {
             maxWidth: 280,
             minWidth: 200,
-            autoPan: false
+            // Auto-pan restored: the earlier "detached popup" problem was
+            // caused by mispositioned markers (see .cd-marker CSS note),
+            // not by auto-pan, so there's no need for the edge trade-off.
+            autoPanPadding: [16, 16]
           });
           marker.addTo(map);
           return marker;
