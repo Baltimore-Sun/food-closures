@@ -486,6 +486,36 @@ def _default_warnings_path(csv_output_path: str) -> str:
     return f"{root}_warnings.txt"
 
 
+# Display-name renames applied to the final CSV only, after every other
+# step (table matching, date-column detection, geocoding's "Address"
+# column lookup) has already used the original scraped header text --
+# none of that logic needs to know about these renames.
+COLUMN_RENAMES: dict[str, str] = {
+    "Name": "establishment",
+    "Reason for Closure": "Closure reason",
+    "Date of Closure": "Closure date",
+    "Date Approved to Re-open": "Date approved to re-open",
+}
+
+
+def apply_column_renames(headers: list[str], rows: list[ClosureRow]) -> list[str]:
+    """
+    Rename output columns per COLUMN_RENAMES, in place on `rows` and
+    returned as a new header list. A no-op for any header not listed
+    (e.g. "Address", "Neighborhood", "Latitude", etc. are left as-is).
+    """
+    new_headers = [COLUMN_RENAMES.get(h, h) for h in headers]
+    if new_headers == headers:
+        return headers  # nothing matched; skip rewriting every row's dict
+
+    for row in rows:
+        for old_name, new_name in COLUMN_RENAMES.items():
+            if old_name in row.values:
+                row.values[new_name] = row.values.pop(old_name)
+
+    return new_headers
+
+
 def _find_column(headers: list[str], marker: str) -> Optional[int]:
     """Return the index of the first header containing `marker` (case-insensitive)."""
     marker_lower = marker.lower()
@@ -607,7 +637,7 @@ def enrich_with_geocoding(
       - "Geocode Confidence" (ArcGIS's 0-100 match score)
 
     Returns the updated header list: Neighborhood is inserted immediately
-    before the Address column; Latitude, Longitude, and Geocode
+    after the Address column; Latitude, Longitude, and Geocode
     Confidence are appended at the end. If no Address column can be
     found at all, logs a warning and returns `headers` unchanged (no
     columns added) rather than failing the whole run.
@@ -622,9 +652,9 @@ def enrich_with_geocoding(
 
     address_col = headers[address_idx]
     new_headers = (
-        headers[:address_idx]
+        headers[: address_idx + 1]
         + ["Neighborhood"]
-        + headers[address_idx:]
+        + headers[address_idx + 1 :]
         + ["Latitude", "Longitude", "Geocode Confidence"]
     )
 
@@ -740,6 +770,8 @@ def run(
             # Only geocode the rows we're actually keeping -- with the
             # "recent" default that's usually well under 20 addresses.
             headers = enrich_with_geocoding(headers, selected, api_key)
+
+        headers = apply_column_renames(headers, selected)
 
         write_csv(headers, selected, output_path)
     finally:
