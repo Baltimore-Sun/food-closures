@@ -150,12 +150,15 @@
     // other providers use that name).
     cartoApiKey: "cb1_3o1l_1_75f971a9dde7332dfac59432",
 
-    // Two points within this many meters of each other are treated as
-    // "overlapping / extremely close" and get jittered apart.
-    jitterThresholdMeters: 10,
+    // Jittering works in screen pixels at the current zoom level, and is
+    // recomputed after every zoom. Dots whose centers are closer than
+    // this many pixels are treated as overlapping and spread apart.
+    // (A dot is 20px across including its white border.)
+    jitterThresholdPx: 20,
 
-    // Radius of the small circle jittered points are spread around.
-    jitterRadiusMeters: 12,
+    // Minimum spacing, in pixels, between neighboring dots once they've
+    // been spread onto a circle around their group's center.
+    jitterSpacingPx: 22,
 
     // Initial view: centered on the simple average of all points, at a
     // fixed, zoomed-out "whole city" level, rather than tightly fit to
@@ -215,65 +218,82 @@
     });
   }
 
-  function haversineMeters(lat1, lon1, lat2, lon2) {
-    var R = 6371000;
-    var toRad = function (d) { return (d * Math.PI) / 180; };
-    var dLat = toRad(lat2 - lat1);
-    var dLon = toRad(lon2 - lon1);
-    var a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }
+  // Pure pixel-space jitter. Takes screen positions [{x, y}, ...] and
+  // returns new positions in the same order. Dots closer than
+  // `thresholdPx` are grouped (transitively, so a chain of near-touching
+  // dots becomes one group), and each group is spread evenly on a circle
+  // around its center, sized so neighboring dots sit `spacingPx` apart.
+  // Groups are ordered by original index, so a given dot keeps the same
+  // slot on the circle from one zoom level to the next.
+  function jitterPixelPositions(positions, thresholdPx, spacingPx) {
+    var n = positions.length;
+    var parent = [];
+    for (var i = 0; i < n; i++) parent.push(i);
 
-  // Groups points within `thresholdMeters` of each other and spreads
-  // each group evenly around its centroid on a circle of `radiusMeters`.
-  // Mutates each point with jLat/jLng (the position to actually plot).
-  function jitterClosePoints(points, thresholdMeters, radiusMeters) {
-    var n = points.length;
-    var assigned = new Array(n).fill(false);
-    var clusters = [];
-
-    for (var i = 0; i < n; i++) {
-      if (assigned[i]) continue;
-      var cluster = [i];
-      assigned[i] = true;
-      for (var j = i + 1; j < n; j++) {
-        if (assigned[j]) continue;
-        if (haversineMeters(points[i].lat, points[i].lng, points[j].lat, points[j].lng) <= thresholdMeters) {
-          cluster.push(j);
-          assigned[j] = true;
-        }
+    function find(a) {
+      while (parent[a] !== a) {
+        parent[a] = parent[parent[a]];
+        a = parent[a];
       }
-      clusters.push(cluster);
+      return a;
     }
 
-    clusters.forEach(function (cluster) {
-      var m = cluster.length;
-      if (m === 1) {
-        var p = points[cluster[0]];
-        p.jLat = p.lat;
-        p.jLng = p.lng;
-        return;
+    for (var a = 0; a < n; a++) {
+      for (var b = a + 1; b < n; b++) {
+        var dx = positions[a].x - positions[b].x;
+        var dy = positions[a].y - positions[b].y;
+        if (dx * dx + dy * dy < thresholdPx * thresholdPx) {
+          parent[find(a)] = find(b);
+        }
       }
-      var centerLat = 0, centerLng = 0;
-      cluster.forEach(function (idx) {
-        centerLat += points[idx].lat;
-        centerLng += points[idx].lng;
-      });
-      centerLat /= m;
-      centerLng /= m;
+    }
 
-      cluster.forEach(function (idx, k) {
-        var angle = (2 * Math.PI * k) / m;
-        var dLat = (radiusMeters * Math.cos(angle)) / 111320;
-        var dLng = (radiusMeters * Math.sin(angle)) / (111320 * Math.cos((centerLat * Math.PI) / 180));
-        points[idx].jLat = centerLat + dLat;
-        points[idx].jLng = centerLng + dLng;
+    var groups = {};
+    for (var k = 0; k < n; k++) {
+      var root = find(k);
+      (groups[root] = groups[root] || []).push(k);
+    }
+
+    var result = positions.map(function (p) { return { x: p.x, y: p.y }; });
+
+    Object.keys(groups).forEach(function (root) {
+      var members = groups[root];
+      var m = members.length;
+      if (m === 1) return;
+
+      var cx = 0, cy = 0;
+      members.forEach(function (idx) { cx += positions[idx].x; cy += positions[idx].y; });
+      cx /= m;
+      cy /= m;
+
+      // Radius at which the gap between neighboring dots on the circle
+      // (the chord length) equals spacingPx.
+      var radius = spacingPx / (2 * Math.sin(Math.PI / m));
+
+      members.forEach(function (idx, slot) {
+        var angle = -Math.PI / 2 + (2 * Math.PI * slot) / m;
+        result[idx] = {
+          x: cx + radius * Math.cos(angle),
+          y: cy + radius * Math.sin(angle)
+        };
       });
     });
 
-    return points;
+    return result;
+  }
+
+  // Moves each marker to its jittered position for the map's current
+  // zoom. Always starts from the true coordinates, never from a previous
+  // jittered position, so results don't drift as the user zooms around.
+  function applyPixelJitter(map, entries) {
+    var zoom = map.getZoom();
+    var projected = entries.map(function (e) {
+      return map.project(e.trueLatLng, zoom);
+    });
+    var jittered = jitterPixelPositions(projected, CONFIG.jitterThresholdPx, CONFIG.jitterSpacingPx);
+    entries.forEach(function (e, i) {
+      e.marker.setLatLng(map.unproject(L.point(jittered[i].x, jittered[i].y), zoom));
+    });
   }
 
   function showStatus(message) {
@@ -327,31 +347,33 @@
           return;
         }
 
-        jitterClosePoints(points, CONFIG.jitterThresholdMeters, CONFIG.jitterRadiusMeters);
+        // Set the view before placing markers: pixel-based jitter needs
+        // a zoom level to project coordinates into screen space.
+        // Center = simple, unweighted average of lat/lng -- close enough
+        // for a sensible overview without extra geo math.
+        var centerLat = points.reduce(function (sum, p) { return sum + p.lat; }, 0) / points.length;
+        var centerLng = points.reduce(function (sum, p) { return sum + p.lng; }, 0) / points.length;
+        map.setView([centerLat, centerLng], CONFIG.defaultZoom);
 
-        var markers = points.map(function (p) {
-          var marker = L.marker([p.jLat, p.jLng], { icon: solidDotIcon() });
+        var entries = points.map(function (p) {
+          var trueLatLng = L.latLng(p.lat, p.lng);
+          var marker = L.marker(trueLatLng, { icon: solidDotIcon() });
           marker.bindPopup(buildPopupHtml(p.row), {
             maxWidth: 280,
             minWidth: 200,
-            // Auto-pan restored: the earlier "detached popup" problem was
-            // caused by mispositioned markers (see .cd-marker CSS note),
-            // not by auto-pan, so there's no need for the edge trade-off.
             autoPanPadding: [16, 16]
           });
           marker.addTo(map);
-          return marker;
+          return { marker: marker, trueLatLng: trueLatLng };
         });
 
-        if (markers.length === 1) {
-          map.setView(markers[0].getLatLng(), CONFIG.defaultZoom);
-        } else {
-          // Simple, unweighted average of lat/lng -- close enough for a
-          // sensible overview center without extra geo math.
-          var centerLat = points.reduce(function (sum, p) { return sum + p.lat; }, 0) / points.length;
-          var centerLng = points.reduce(function (sum, p) { return sum + p.lng; }, 0) / points.length;
-          map.setView([centerLat, centerLng], CONFIG.defaultZoom);
-        }
+        // Spread overlapping dots for the current zoom, and again after
+        // every zoom change (dots that overlap when zoomed out usually
+        // separate on their own when zoomed in, and vice versa).
+        applyPixelJitter(map, entries);
+        map.on("zoomend", function () {
+          applyPixelJitter(map, entries);
+        });
 
         hideStatus();
       })
