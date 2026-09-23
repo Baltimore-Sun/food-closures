@@ -1,7 +1,6 @@
-Scrape run: 2026-09-22T21:09:49
+Scrape run: 2026-09-23T15:15:08
 Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 Mode: recent (days=14)
 
-2 warning(s):
-2026-09-22 21:09:49 WARNING Could not parse Date of Closure value: '8/18/206'
-2026-09-22 21:09:49 WARNING Skipped 1 row(s) with an unparseable Date of Closure while filtering for the last 14 day(s).
+1 warning(s):
+2026-09-23 15:15:02 WARNING Date of Closure '8/18/206' did not parse; inferred 2026-08-18 from surrounding rows (prev=2026-08-17, next=2026-08-18), which share the same month and year.
