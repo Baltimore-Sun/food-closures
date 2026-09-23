@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex, nofollow">
+<title>Baltimore Food Establishment Closures</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&display=swap">
+
+<style>
+  /* ---------------------------------------------------------------
+     Accent color lives here as a single custom property -- change
+     this one line to re-theme the whole page.
+  --------------------------------------------------------------- */
+  :root {
+    --accent: #1c2551;
+    --accent-soft: rgba(28, 37, 81, 0.18);
+  }
+
+  html, body, #map {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    font-family: 'Noto Sans', sans-serif;
+    overflow: hidden;
+  }
+  #map {
+    width: 100%;
+    background: #eef1f4;
+  }
+
+  #status-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eef1f4;
+    color: #6b7280;
+    font-size: 14px;
+    z-index: 1000;
+    padding: 24px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+  #status-overlay.hidden { display: none; }
+
+  /* Halo-dot marker (custom divIcon; visual is small, but the icon's
+     own box is 44x44 so the tap/click target stays touch-friendly) */
+  .cd-marker { position: relative; width: 44px; height: 44px; }
+  .cd-marker .cd-halo {
+    position: absolute; top: 50%; left: 50%;
+    width: 30px; height: 30px; margin: -15px 0 0 -15px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0.18;
+  }
+  .cd-marker .cd-dot {
+    position: absolute; top: 50%; left: 50%;
+    width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid #ffffff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.15);
+  }
+
+  /* Popup chrome -- "Minimal Card" style approved in the mockup */
+  .leaflet-popup-content-wrapper {
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(20, 20, 35, 0.10);
+    border: 1px solid #e3e5ea;
+    padding: 0;
+  }
+  .leaflet-popup-content {
+    margin: 16px 18px 18px 18px;
+    font-family: 'Noto Sans', sans-serif;
+    line-height: normal;
+  }
+  .leaflet-popup-close-button {
+    color: #9aa0ab !important;
+  }
+  .cd-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #15162b;
+    line-height: 1.25;
+  }
+  .cd-addr {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 2px;
+    line-height: 1.3;
+  }
+  .cd-divider {
+    height: 1px;
+    background: #eceef1;
+    margin: 12px 0;
+  }
+  .cd-field {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #33343d;
+  }
+  .cd-field + .cd-field {
+    margin-top: 6px;
+  }
+  .cd-label {
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  /* Keep the popup usable down to a 320px-wide viewport */
+  @media (max-width: 360px) {
+    .leaflet-popup-content {
+      margin: 14px 14px 16px 14px;
+    }
+    .cd-name { font-size: 15px; }
+    .cd-addr, .cd-field { font-size: 12.5px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+<div id="status-overlay">Loading closures&hellip;</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+  integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+<script>
+(function () {
+  "use strict";
+
+  // -----------------------------------------------------------------
+  // Configuration -- the handful of things you're likely to tweak.
+  // -----------------------------------------------------------------
+  var CONFIG = {
+    // Same-origin fetch: this file and the CSV are both served from
+    // GitHub Pages, so no CORS concerns and the map always reflects
+    // whatever the scraper last committed -- no rebuild needed.
+    csvUrl: "data/closures.csv",
+
+    // >>> REPLACE with your real CARTO API key from carto.com/basemaps/apikey <<<
+    // NOTE: this key is designed by CARTO to be sent to every visitor's
+    // browser (see their own docs) -- it is not a traditional secret.
+    // Double-check the exact query parameter name CARTO's dashboard
+    // shows you when you generate the key; "api_key" is used below as
+    // the commonly-documented name, but confirm against your own
+    // account's copy-paste snippet before relying on it.
+    cartoApiKey: "YOUR_CARTO_API_KEY_HERE",
+
+    // Two points within this many meters of each other are treated as
+    // "overlapping / extremely close" and get jittered apart.
+    jitterThresholdMeters: 10,
+
+    // Radius of the small circle jittered points are spread around.
+    jitterRadiusMeters: 12,
+
+    // Fallback view if there's no geocoded data to fit bounds to.
+    fallbackCenter: [39.2904, -76.6122],
+    fallbackZoom: 12
+  };
+
+  var TILE_URL =
+    "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png?api_key=" +
+    encodeURIComponent(CONFIG.cartoApiKey);
+  var TILE_ATTRIBUTION =
+    '&copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>, ' +
+    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors';
+
+  // -----------------------------------------------------------------
+  // Small helpers
+  // -----------------------------------------------------------------
+  function escapeHtml(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // "6717 Reisterstown Rd., 21215" + "Fallstaff" -> "6717 Reisterstown Rd., Fallstaff"
+  function addressWithNeighborhood(address, neighborhood) {
+    address = address || "";
+    if (!neighborhood) return address;
+    var withNeighborhood = address.replace(/,\s*\d{5}(-\d{4})?\s*$/, ", " + neighborhood);
+    // If the address didn't end in a recognizable ZIP, don't silently
+    // drop information -- fall back to appending the neighborhood.
+    return withNeighborhood !== address ? withNeighborhood : address + " (" + neighborhood + ")";
+  }
+
+  function buildPopupHtml(row) {
+    var addr = addressWithNeighborhood(row["Address"], row["Neighborhood"]);
+    return (
+      '<div class="cd-name">' + escapeHtml(row["Establishment"]) + "</div>" +
+      '<div class="cd-addr">' + escapeHtml(addr) + "</div>" +
+      '<div class="cd-divider"></div>' +
+      '<div class="cd-field"><span class="cd-label">Closure reason:</span> ' + escapeHtml(row["Closure reason"]) + "</div>" +
+      '<div class="cd-field"><span class="cd-label">Closure date:</span> ' + escapeHtml(row["Closure date"]) + "</div>" +
+      '<div class="cd-field"><span class="cd-label">Date approved to re-open:</span> ' + escapeHtml(row["Date approved to re-open"]) + "</div>"
+    );
+  }
+
+  function haloIcon() {
+    return L.divIcon({
+      className: "cd-marker",
+      html: '<div class="cd-halo"></div><div class="cd-dot"></div>',
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -14]
+    });
+  }
+
+  function haversineMeters(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var toRad = function (d) { return (d * Math.PI) / 180; };
+    var dLat = toRad(lat2 - lat1);
+    var dLon = toRad(lon2 - lon1);
+    var a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  // Groups points within `thresholdMeters` of each other and spreads
+  // each group evenly around its centroid on a circle of `radiusMeters`.
+  // Mutates each point with jLat/jLng (the position to actually plot).
+  function jitterClosePoints(points, thresholdMeters, radiusMeters) {
+    var n = points.length;
+    var assigned = new Array(n).fill(false);
+    var clusters = [];
+
+    for (var i = 0; i < n; i++) {
+      if (assigned[i]) continue;
+      var cluster = [i];
+      assigned[i] = true;
+      for (var j = i + 1; j < n; j++) {
+        if (assigned[j]) continue;
+        if (haversineMeters(points[i].lat, points[i].lng, points[j].lat, points[j].lng) <= thresholdMeters) {
+          cluster.push(j);
+          assigned[j] = true;
+        }
+      }
+      clusters.push(cluster);
+    }
+
+    clusters.forEach(function (cluster) {
+      var m = cluster.length;
+      if (m === 1) {
+        var p = points[cluster[0]];
+        p.jLat = p.lat;
+        p.jLng = p.lng;
+        return;
+      }
+      var centerLat = 0, centerLng = 0;
+      cluster.forEach(function (idx) {
+        centerLat += points[idx].lat;
+        centerLng += points[idx].lng;
+      });
+      centerLat /= m;
+      centerLng /= m;
+
+      cluster.forEach(function (idx, k) {
+        var angle = (2 * Math.PI * k) / m;
+        var dLat = (radiusMeters * Math.cos(angle)) / 111320;
+        var dLng = (radiusMeters * Math.sin(angle)) / (111320 * Math.cos((centerLat * Math.PI) / 180));
+        points[idx].jLat = centerLat + dLat;
+        points[idx].jLng = centerLng + dLng;
+      });
+    });
+
+    return points;
+  }
+
+  function showStatus(message) {
+    var el = document.getElementById("status-overlay");
+    el.textContent = message;
+    el.classList.remove("hidden");
+  }
+
+  function hideStatus() {
+    document.getElementById("status-overlay").classList.add("hidden");
+  }
+
+  // -----------------------------------------------------------------
+  // Main
+  // -----------------------------------------------------------------
+  function init() {
+    fetch(CONFIG.csvUrl, { cache: "no-store" })
+      .then(function (resp) {
+        if (!resp.ok) throw new Error("HTTP " + resp.status + " fetching " + CONFIG.csvUrl);
+        return resp.text();
+      })
+      .then(function (csvText) {
+        var parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+        var rows = parsed.data || [];
+
+        var points = [];
+        rows.forEach(function (row) {
+          var lat = parseFloat(row["Latitude"]);
+          var lng = parseFloat(row["Longitude"]);
+          if (isFinite(lat) && isFinite(lng)) {
+            points.push({ lat: lat, lng: lng, row: row });
+          }
+        });
+
+        var map = L.map("map", { zoomControl: true, tap: true });
+
+        L.tileLayer(TILE_URL, {
+          attribution: TILE_ATTRIBUTION,
+          subdomains: "abcd",
+          maxZoom: 20,
+          detectRetina: true
+        }).addTo(map);
+
+        if (points.length === 0) {
+          map.setView(CONFIG.fallbackCenter, CONFIG.fallbackZoom);
+          showStatus("No geocoded closures to display right now.");
+          return;
+        }
+
+        jitterClosePoints(points, CONFIG.jitterThresholdMeters, CONFIG.jitterRadiusMeters);
+
+        var markers = points.map(function (p) {
+          var marker = L.marker([p.jLat, p.jLng], { icon: haloIcon() });
+          marker.bindPopup(buildPopupHtml(p.row), {
+            maxWidth: 280,
+            minWidth: 200,
+            autoPanPadding: [16, 16]
+          });
+          marker.addTo(map);
+          return marker;
+        });
+
+        if (markers.length === 1) {
+          map.setView(markers[0].getLatLng(), 16);
+        } else {
+          map.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
+        }
+
+        hideStatus();
+      })
+      .catch(function (err) {
+        console.error(err);
+        showStatus("Could not load closures data. Please try again later.");
+      });
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>
