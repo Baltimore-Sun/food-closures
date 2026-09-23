@@ -25,10 +25,18 @@ Usage:
     python scrape_closures.py --days 30 --output out.csv
     python scrape_closures.py --mode full --output all_closures.csv --verbose
 
+Geocoding: each row's Address is geocoded via the ArcGIS World Geocoding
+Service, and the resulting coordinates are spatially joined against
+Baltimore's official Neighborhood Statistical Areas layer to populate a
+Neighborhood column. This requires an ArcGIS API key with the Geocoding
+privilege enabled -- pass --arcgis-api-key or set the ARCGIS_API_KEY
+environment variable. Pass --no-geocode to skip this entirely.
+
 Exit codes:
     0  success
     1  could not fetch the page
     2  could not find the target table on the page
+    3  geocoding was requested but no ArcGIS API key was available
 """
 
 from __future__ import annotations
@@ -39,6 +47,7 @@ import logging
 import os
 import re
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Optional
@@ -69,6 +78,31 @@ REQUEST_HEADERS = {
     )
 }
 
+# All scraped addresses are within Baltimore City -- appended to each
+# address before geocoding, since the source table only gives street +
+# zip (e.g. "2334 N. Charles St., 21218").
+GEOCODE_LOCALITY_SUFFIX = "Baltimore, Maryland, USA"
+
+# Current documented ArcGIS World Geocoding Service endpoint. Requests
+# are sent as POST so the API key/token stays out of the request URL
+# (and therefore out of any URL that might get logged).
+ARCGIS_GEOCODE_URL = (
+    "https://geocode-api.arcgis.com/arcgis/rest/services/World/GeocodeServer/"
+    "findAddressCandidates"
+)
+
+# Baltimore City's official Neighborhood Statistical Areas layer (public,
+# no API key required). Field "Name" holds the neighborhood name.
+NEIGHBORHOOD_LAYER_QUERY_URL = (
+    "https://services1.arcgis.com/mVFRs7NF4iFitgbY/ArcGIS/rest/services/"
+    "DataPoints/FeatureServer/38/query"
+)
+
+# Small pause between rows' geocoding requests, out of courtesy to both
+# services -- at the volumes this script deals with (well under 20
+# addresses per run) this adds a few seconds at most.
+GEOCODE_REQUEST_DELAY_SECONDS = 0.2
+
 log = logging.getLogger("scrape_closures")
 
 
@@ -82,6 +116,39 @@ class FetchError(ScraperError):
 
 class TableNotFoundError(ScraperError):
     pass
+
+
+class GeocodingConfigError(ScraperError):
+    pass
+
+
+class _SecretRedactingFilter(logging.Filter):
+    """
+    Defense-in-depth: strips a known secret value out of any log message
+    before it's emitted, in case something downstream (an exception's
+    string form, a library's own debug logging, etc.) ever includes it.
+    We also avoid ever putting the API key in a request URL in the first
+    place (see geocode_address), so this should normally have nothing to
+    redact.
+    """
+
+    def __init__(self, secret: Optional[str]) -> None:
+        super().__init__()
+        self._secret = secret
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if not self._secret:
+            return True
+        if self._secret in str(record.msg):
+            record.msg = str(record.msg).replace(self._secret, "***REDACTED***")
+        if record.args:
+            record.args = tuple(
+                arg.replace(self._secret, "***REDACTED***")
+                if isinstance(arg, str) and self._secret in arg
+                else arg
+                for arg in record.args
+            )
+        return True
 
 
 @dataclass
@@ -176,13 +243,13 @@ _DATE_FORMATS = ("%m/%d/%Y", "%m/%d/%y", "%B %d, %Y", "%b %d, %Y")
 
 def parse_date_cell(raw: str) -> Optional[date]:
     """
-    Parse a "Date of Closure" cell into a date object.
+    Parse a "Date of Closure" cell into a date object using known formats
+    only -- no inference from other rows. Returns None if the value is
+    blank or doesn't match any known format.
 
-    Returns None (rather than raising) if the value is blank or doesn't
-    match any known format -- the source data is hand-entered and
-    occasionally has typos (e.g. a 3-digit year). Callers should treat
-    None as "unparseable" and decide how to handle it; we never guess at
-    a corrupted date.
+    This intentionally does NOT log a warning on failure: the caller
+    (parse_table) first tries to recover the date from surrounding rows
+    before deciding whether it's truly unparseable and warning about it.
     """
     text = raw.strip()
     if not text:
@@ -194,8 +261,65 @@ def parse_date_cell(raw: str) -> Optional[date]:
         except ValueError:
             continue
 
-    log.warning("Could not parse Date of Closure value: %r", raw)
     return None
+
+
+def _extract_day_component(raw: str) -> Optional[int]:
+    """
+    Try to read just the day-of-month token from a raw M/D/Y-shaped date
+    string, without validating the month or year (those may be the
+    corrupted part). Returns None if the string isn't in a recognizable
+    M/D/Y shape, or if the day token itself isn't a legible 1-31 number --
+    per the "don't guess an unreadable day" rule, that case is a hard
+    failure for the caller, not something context can fix.
+    """
+    parts = raw.strip().split("/")
+    if len(parts) != 3:
+        return None
+
+    day_str = parts[1].strip()
+    if not day_str.isdigit():
+        return None
+
+    day = int(day_str)
+    if not (1 <= day <= 31):
+        return None
+
+    return day
+
+
+def _infer_date_from_neighbors(
+    raw: str, prev_date: Optional[date], next_date: Optional[date]
+) -> Optional[date]:
+    """
+    Recover a date that failed normal parsing, using the fact that the
+    source table is in chronological order by Date of Closure.
+
+    Only applies when:
+      - the day-of-month is legibly readable from `raw` (see
+        _extract_day_component -- if not, we never guess), AND
+      - both the immediately preceding and following rows have a known
+        date, AND those two dates share the same month and year (i.e.
+        this row sits inside a same-month-and-year run).
+
+    In that case we assume this row's month and year match its
+    neighbors', and combine that with the legible day. Returns None
+    (meaning: still unparseable) if any of that doesn't hold, or if the
+    resulting month/day/year combination isn't a real calendar date.
+    """
+    day = _extract_day_component(raw)
+    if day is None:
+        return None
+
+    if prev_date is None or next_date is None:
+        return None
+    if prev_date.year != next_date.year or prev_date.month != next_date.month:
+        return None
+
+    try:
+        return date(year=next_date.year, month=next_date.month, day=day)
+    except ValueError:
+        return None
 
 
 def parse_table(table) -> tuple[list[str], list[ClosureRow]]:
@@ -231,7 +355,10 @@ def parse_table(table) -> tuple[list[str], list[ClosureRow]]:
             f"'{DATE_COLUMN_MARKER}' column."
         )
 
-    rows: list[ClosureRow] = []
+    # First pass: collect raw cell text per row, and a "strict" parse of
+    # the Date of Closure (no cross-row inference yet -- we need every
+    # row's strict result available before we can look at neighbors).
+    parsed_rows: list[tuple[dict[str, str], str, Optional[date]]] = []
     body_trs = [tr for tr in all_th_rows if tr is not header_tr and tr.find_all("td")]
 
     for tr in body_trs:
@@ -261,12 +388,41 @@ def parse_table(table) -> tuple[list[str], list[ClosureRow]]:
 
         values = dict(zip(headers, cell_texts))
         raw_date = cell_texts[date_col_idx]
+        parsed_rows.append((values, raw_date, parse_date_cell(raw_date)))
+
+    # Second pass: for any row whose date didn't parse normally, try to
+    # recover it from its immediate neighbors (the table is chronological
+    # by Date of Closure -- see _infer_date_from_neighbors). Only now do
+    # we log, since only now do we know whether it was truly unparseable
+    # or successfully recovered from context.
+    rows: list[ClosureRow] = []
+    n = len(parsed_rows)
+    for i, (values, raw_date, strict_date) in enumerate(parsed_rows):
+        final_date = strict_date
+
+        if final_date is None:
+            prev_date = parsed_rows[i - 1][2] if i > 0 else None
+            next_date = parsed_rows[i + 1][2] if i < n - 1 else None
+            inferred = _infer_date_from_neighbors(raw_date, prev_date, next_date)
+
+            if inferred is not None:
+                log.warning(
+                    "Date of Closure %r did not parse; inferred %s from "
+                    "surrounding rows (prev=%s, next=%s), which share the "
+                    "same month and year.",
+                    raw_date, inferred.isoformat(),
+                    prev_date.isoformat() if prev_date else None,
+                    next_date.isoformat() if next_date else None,
+                )
+                final_date = inferred
+            else:
+                log.warning("Could not parse Date of Closure value: %r", raw_date)
 
         rows.append(
             ClosureRow(
                 values=values,
                 date_of_closure_raw=raw_date,
-                date_of_closure=parse_date_cell(raw_date),
+                date_of_closure=final_date,
             )
         )
 
@@ -330,6 +486,177 @@ def _default_warnings_path(csv_output_path: str) -> str:
     return f"{root}_warnings.txt"
 
 
+def _find_column(headers: list[str], marker: str) -> Optional[int]:
+    """Return the index of the first header containing `marker` (case-insensitive)."""
+    marker_lower = marker.lower()
+    for i, h in enumerate(headers):
+        if marker_lower in h.lower():
+            return i
+    return None
+
+
+def geocode_address(
+    address: str, api_key: str, timeout: int = REQUEST_TIMEOUT_SECONDS
+) -> tuple[Optional[float], Optional[float], Optional[float]]:
+    """
+    Geocode a single address via the ArcGIS World Geocoding Service.
+    Returns (latitude, longitude, score) -- score is 0-100, ArcGIS's own
+    match-confidence value. Returns (None, None, None) on any failure or
+    no-match, with a warning logged (never raises, so one bad address
+    doesn't abort the whole run).
+
+    Sent as POST with the key in the body, not the URL, so it never ends
+    up in a logged request line.
+    """
+    payload = {
+        "f": "json",
+        "singleLine": address,
+        "outFields": "Score",
+        "maxLocations": 1,
+        "token": api_key,
+    }
+    try:
+        resp = requests.post(ARCGIS_GEOCODE_URL, data=payload, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        log.warning("Geocoding request failed for address %r: %s", address, exc)
+        return None, None, None
+
+    if isinstance(data, dict) and "error" in data:
+        err = data["error"]
+        log.warning(
+            "ArcGIS geocoding API error for address %r: %s",
+            address, err.get("message", err) if isinstance(err, dict) else err,
+        )
+        return None, None, None
+
+    candidates = data.get("candidates") or []
+    if not candidates:
+        log.warning("No geocoding match found for address: %r", address)
+        return None, None, None
+
+    best = candidates[0]
+    location = best.get("location") or {}
+    lat = location.get("y")
+    lon = location.get("x")
+    score = best.get("score")
+
+    if lat is None or lon is None:
+        log.warning("Geocoding candidate for %r had no usable location: %r", address, best)
+        return None, None, None
+
+    return float(lat), float(lon), (float(score) if score is not None else None)
+
+
+def lookup_neighborhood(
+    lat: float, lon: float, timeout: int = REQUEST_TIMEOUT_SECONDS
+) -> Optional[str]:
+    """
+    Spatially join a (lat, lon) point against Baltimore's official
+    Neighborhood Statistical Areas layer and return the neighborhood
+    Name, or None if the lookup fails or the point falls outside every
+    polygon (e.g. an address just outside city limits). No API key
+    needed -- this is a public feature service.
+    """
+    params = {
+        "f": "json",
+        "geometry": f"{lon},{lat}",
+        "geometryType": "esriGeometryPoint",
+        "inSR": 4326,
+        "spatialRel": "esriSpatialRelIntersects",
+        "outFields": "Name",
+        "returnGeometry": "false",
+    }
+    try:
+        resp = requests.get(NEIGHBORHOOD_LAYER_QUERY_URL, params=params, timeout=timeout)
+        resp.raise_for_status()
+        data = resp.json()
+    except (requests.RequestException, ValueError) as exc:
+        log.warning("Neighborhood lookup failed for (%s, %s): %s", lat, lon, exc)
+        return None
+
+    if isinstance(data, dict) and "error" in data:
+        err = data["error"]
+        log.warning(
+            "Neighborhood layer API error for (%s, %s): %s",
+            lat, lon, err.get("message", err) if isinstance(err, dict) else err,
+        )
+        return None
+
+    features = data.get("features") or []
+    if not features:
+        log.warning("No neighborhood polygon contains point (%s, %s).", lat, lon)
+        return None
+
+    return features[0].get("attributes", {}).get("Name") or None
+
+
+def enrich_with_geocoding(
+    headers: list[str],
+    rows: list[ClosureRow],
+    api_key: str,
+    request_delay_seconds: float = GEOCODE_REQUEST_DELAY_SECONDS,
+) -> list[str]:
+    """
+    For each row, geocode its Address and spatially join the result
+    against Baltimore's neighborhood boundaries. Adds/populates, on each
+    row's `values` dict, in place:
+      - "Neighborhood" (from the boundary layer's Name field)
+      - "Latitude", "Longitude" (from the geocoder)
+      - "Geocode Confidence" (ArcGIS's 0-100 match score)
+
+    Returns the updated header list: Neighborhood is inserted immediately
+    before the Address column; Latitude, Longitude, and Geocode
+    Confidence are appended at the end. If no Address column can be
+    found at all, logs a warning and returns `headers` unchanged (no
+    columns added) rather than failing the whole run.
+    """
+    address_idx = _find_column(headers, "address")
+    if address_idx is None:
+        log.warning(
+            "Could not find an 'Address' column in headers %r; skipping "
+            "geocoding and neighborhood lookup.", headers,
+        )
+        return headers
+
+    address_col = headers[address_idx]
+    new_headers = (
+        headers[:address_idx]
+        + ["Neighborhood"]
+        + headers[address_idx:]
+        + ["Latitude", "Longitude", "Geocode Confidence"]
+    )
+
+    for i, row in enumerate(rows):
+        row.values.setdefault("Neighborhood", "")
+        row.values.setdefault("Latitude", "")
+        row.values.setdefault("Longitude", "")
+        row.values.setdefault("Geocode Confidence", "")
+
+        address = (row.values.get(address_col) or "").strip()
+        if not address:
+            log.warning("Row %d has a blank Address; skipping geocoding for it.", i)
+            continue
+
+        full_address = f"{address}, {GEOCODE_LOCALITY_SUFFIX}"
+        lat, lon, score = geocode_address(full_address, api_key)
+
+        if lat is not None and lon is not None:
+            row.values["Latitude"] = f"{lat:.6f}"
+            row.values["Longitude"] = f"{lon:.6f}"
+            row.values["Geocode Confidence"] = "" if score is None else str(score)
+
+            neighborhood = lookup_neighborhood(lat, lon)
+            if neighborhood:
+                row.values["Neighborhood"] = neighborhood
+
+        if request_delay_seconds and i < len(rows) - 1:
+            time.sleep(request_delay_seconds)
+
+    return new_headers
+
+
 def write_warnings_file(
     records: list[str], path: str, mode: str, days: int, source_url: str
 ) -> None:
@@ -369,22 +696,34 @@ def run(
     url: str = SOURCE_URL,
     reference_date: Optional[date] = None,
     warnings_output_path: Optional[str] = None,
+    geocode: bool = True,
+    api_key: Optional[str] = None,
 ) -> str:
     """
-    Orchestrates fetch -> find table -> parse -> (optionally filter) -> write.
+    Orchestrates fetch -> find table -> parse -> (optionally filter) ->
+    (optionally geocode + neighborhood lookup) -> write.
     Returns the output path used. Raises ScraperError subclasses on failure.
 
     On success, also writes a companion .txt file listing any WARNING-level
-    messages logged during the run (unparseable dates, ragged rows, etc.).
-    On failure (fetch error / table not found), no CSV or warnings file is
-    written -- the run already stops with a logged error and non-zero exit.
+    messages logged during the run (unparseable dates, ragged rows, failed
+    geocodes, etc.). On failure (fetch error / table not found / geocoding
+    misconfigured), no CSV or warnings file is written -- the run already
+    stops with a logged error and non-zero exit.
     """
     if output_path is None:
         output_path = "closures_full.csv" if mode == "full" else "closures_recent.csv"
     if warnings_output_path is None:
         warnings_output_path = _default_warnings_path(output_path)
 
+    if geocode and not api_key:
+        raise GeocodingConfigError(
+            "Geocoding is enabled but no ArcGIS API key was provided. Pass "
+            "--arcgis-api-key, set the ARCGIS_API_KEY environment variable, "
+            "or pass --no-geocode to skip geocoding and neighborhood lookup."
+        )
+
     collector = _WarningCollector()
+    collector.addFilter(_SecretRedactingFilter(api_key))
     log.addHandler(collector)
     try:
         html = fetch_html(url)
@@ -396,6 +735,11 @@ def run(
             selected = rows
         else:
             selected = filter_recent(rows, days=days, reference_date=reference_date)
+
+        if geocode:
+            # Only geocode the rows we're actually keeping -- with the
+            # "recent" default that's usually well under 20 addresses.
+            headers = enrich_with_geocoding(headers, selected, api_key)
 
         write_csv(headers, selected, output_path)
     finally:
@@ -443,6 +787,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Override the source URL (mainly useful for testing).",
     )
     parser.add_argument(
+        "--arcgis-api-key",
+        default=None,
+        help="ArcGIS API key (with the Geocoding privilege) for geocoding "
+             "and neighborhood lookup. Defaults to the ARCGIS_API_KEY "
+             "environment variable.",
+    )
+    parser.add_argument(
+        "--no-geocode",
+        action="store_true",
+        help="Skip geocoding and neighborhood lookup entirely -- the "
+             "Neighborhood/Latitude/Longitude/Geocode Confidence columns "
+             "will not be added.",
+    )
+    parser.add_argument(
         "-v", "--verbose",
         action="store_true",
         help="Enable debug logging.",
@@ -453,11 +811,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[list[str]] = None) -> int:
     args = build_arg_parser().parse_args(argv)
 
+    api_key = args.arcgis_api_key or os.environ.get("ARCGIS_API_KEY")
+
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)-7s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
+    # Defense-in-depth: never let the API key value itself reach a log
+    # line, regardless of where in the call stack it might turn up.
+    # NOTE: filters must be attached to the *handler*, not a Logger
+    # object, to be consulted for records propagating up from child
+    # loggers (e.g. "scrape_closures", or urllib3's own debug logging
+    # under --verbose) -- a filter on the root Logger itself is only
+    # ever consulted for records that originate at the root logger.
+    redactor = _SecretRedactingFilter(api_key)
+    for handler in logging.getLogger().handlers:
+        handler.addFilter(redactor)
 
     try:
         output_path = run(
@@ -466,6 +836,8 @@ def main(argv: Optional[list[str]] = None) -> int:
             output_path=args.output,
             url=args.url,
             warnings_output_path=args.warnings_output,
+            geocode=not args.no_geocode,
+            api_key=api_key,
         )
     except FetchError as exc:
         log.error(str(exc))
@@ -473,6 +845,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     except TableNotFoundError as exc:
         log.error(str(exc))
         return 2
+    except GeocodingConfigError as exc:
+        log.error(str(exc))
+        return 3
 
     print(output_path)
     return 0
