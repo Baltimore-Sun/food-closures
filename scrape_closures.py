@@ -482,6 +482,28 @@ def sort_by_closure_date_desc(rows: list[ClosureRow]) -> list[ClosureRow]:
     return dated + undated
 
 
+REOPEN_DATE_COLUMN_MARKER = "re-open"
+BLANK_REOPEN_DATE_PLACEHOLDER = "None reported yet"
+
+
+def fill_blank_reopen_dates(headers: list[str], rows: list[ClosureRow]) -> None:
+    """
+    Replace a blank "Date Approved to Re-open" value with a clearer
+    placeholder -- an empty cell there just means the establishment
+    hasn't been cleared to reopen yet, not that scraping failed.
+    Modifies `rows` in place. A no-op if no matching column is found
+    (e.g. the page ever drops that column), rather than failing the run.
+    """
+    idx = _find_column(headers, REOPEN_DATE_COLUMN_MARKER)
+    if idx is None:
+        return
+
+    col_name = headers[idx]
+    for row in rows:
+        if not (row.values.get(col_name) or "").strip():
+            row.values[col_name] = BLANK_REOPEN_DATE_PLACEHOLDER
+
+
 def write_csv(headers: list[str], rows: list[ClosureRow], output_path: str) -> None:
     parent_dir = os.path.dirname(output_path)
     if parent_dir:
@@ -787,6 +809,7 @@ def run(
             # "recent" default that's usually well under 20 addresses.
             headers = enrich_with_geocoding(headers, selected, api_key)
 
+        fill_blank_reopen_dates(headers, selected)
         headers = apply_column_renames(headers, selected)
 
         write_csv(headers, selected, output_path)
