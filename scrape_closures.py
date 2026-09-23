@@ -57,7 +57,7 @@ from bs4 import BeautifulSoup
 
 SOURCE_URL = (
     "https://www.baltimorecity.gov/health/our-work/permits-regulations/"
-    "public-health/recent-food-hment-closures"
+    "public-health/recent-food-establishment-closures"
 )
 
 # Headers that must all be present (case-insensitive substring match) on a
@@ -468,6 +468,20 @@ def filter_recent(
     return kept
 
 
+def sort_by_closure_date_desc(rows: list[ClosureRow]) -> list[ClosureRow]:
+    """
+    Sort rows by Date of Closure, most recent first, using the parsed
+    date (not the raw string -- lexicographic sort on "M/D/YYYY" text
+    wouldn't order correctly). Rows whose date couldn't be parsed or
+    inferred have no reliable sort key, so they're placed at the end, in
+    their original (source-table) relative order.
+    """
+    dated = [r for r in rows if r.date_of_closure is not None]
+    undated = [r for r in rows if r.date_of_closure is None]
+    dated.sort(key=lambda r: r.date_of_closure, reverse=True)
+    return dated + undated
+
+
 def write_csv(headers: list[str], rows: list[ClosureRow], output_path: str) -> None:
     parent_dir = os.path.dirname(output_path)
     if parent_dir:
@@ -765,6 +779,8 @@ def run(
             selected = rows
         else:
             selected = filter_recent(rows, days=days, reference_date=reference_date)
+
+        selected = sort_by_closure_date_desc(selected)
 
         if geocode:
             # Only geocode the rows we're actually keeping -- with the
