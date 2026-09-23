@@ -50,19 +50,12 @@
   }
   #status-overlay.hidden { display: none; }
 
-  /* Halo-dot marker (custom divIcon; visual is small, but the icon's
+  /* Solid-dot marker (custom divIcon; visual is small, but the icon's
      own box is 44x44 so the tap/click target stays touch-friendly) */
   .cd-marker { position: relative; width: 44px; height: 44px; }
-  .cd-marker .cd-halo {
-    position: absolute; top: 50%; left: 50%;
-    width: 30px; height: 30px; margin: -15px 0 0 -15px;
-    border-radius: 50%;
-    background: var(--accent);
-    opacity: 0.18;
-  }
   .cd-marker .cd-dot {
     position: absolute; top: 50%; left: 50%;
-    width: 14px; height: 14px; margin: -7px 0 0 -7px;
+    width: 16px; height: 16px; margin: -8px 0 0 -8px;
     border-radius: 50%;
     background: var(--accent);
     border: 2px solid #ffffff;
@@ -146,6 +139,10 @@
     // whatever the scraper last committed -- no rebuild needed.
     csvUrl: "data/closures.csv",
 
+    // Your CARTO API key, from carto.com/basemaps/apikey.
+    // NOTE: per CARTO's own current docs, the tile URL takes it as a
+    // "key" query parameter (not "api_key" -- an easy mix-up, since
+    // other providers use that name).
     cartoApiKey: "cb1_3o1l_1_75f971a9dde7332dfac59432",
 
     // Two points within this many meters of each other are treated as
@@ -198,10 +195,10 @@
     );
   }
 
-  function haloIcon() {
+  function solidDotIcon() {
     return L.divIcon({
       className: "cd-marker",
-      html: '<div class="cd-halo"></div><div class="cd-dot"></div>',
+      html: '<div class="cd-dot"></div>',
       iconSize: [44, 44],
       iconAnchor: [22, 22],
       popupAnchor: [0, -14]
@@ -319,7 +316,7 @@
         jitterClosePoints(points, CONFIG.jitterThresholdMeters, CONFIG.jitterRadiusMeters);
 
         var markers = points.map(function (p) {
-          var marker = L.marker([p.jLat, p.jLng], { icon: haloIcon() });
+          var marker = L.marker([p.jLat, p.jLng], { icon: solidDotIcon() });
           marker.bindPopup(buildPopupHtml(p.row), {
             maxWidth: 280,
             minWidth: 200,
