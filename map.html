@@ -152,6 +152,11 @@
     // Radius of the small circle jittered points are spread around.
     jitterRadiusMeters: 12,
 
+    // Initial view: centered on the simple average of all points, at a
+    // fixed, zoomed-out "whole city" level, rather than tightly fit to
+    // whatever the current data's exact spread happens to be.
+    defaultZoom: 11,
+
     // Fallback view if there's no geocoded data to fit bounds to.
     fallbackCenter: [39.2904, -76.6122],
     fallbackZoom: 12
@@ -299,6 +304,10 @@
         });
 
         var map = L.map("map", { zoomControl: true, tap: true });
+        // Drop Leaflet's default attribution prefix (purely a design
+        // choice) -- our own CARTO/OpenStreetMap attribution below is
+        // unaffected and still required.
+        map.attributionControl.setPrefix(false);
 
         L.tileLayer(TILE_URL, {
           attribution: TILE_ATTRIBUTION,
@@ -320,16 +329,20 @@
           marker.bindPopup(buildPopupHtml(p.row), {
             maxWidth: 280,
             minWidth: 200,
-            autoPanPadding: [16, 16]
+            autoPan: false
           });
           marker.addTo(map);
           return marker;
         });
 
         if (markers.length === 1) {
-          map.setView(markers[0].getLatLng(), 16);
+          map.setView(markers[0].getLatLng(), CONFIG.defaultZoom);
         } else {
-          map.fitBounds(L.featureGroup(markers).getBounds().pad(0.15));
+          // Simple, unweighted average of lat/lng -- close enough for a
+          // sensible overview center without extra geo math.
+          var centerLat = points.reduce(function (sum, p) { return sum + p.lat; }, 0) / points.length;
+          var centerLng = points.reduce(function (sum, p) { return sum + p.lng; }, 0) / points.length;
+          map.setView([centerLat, centerLng], CONFIG.defaultZoom);
         }
 
         hideStatus();
