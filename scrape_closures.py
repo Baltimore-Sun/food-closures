@@ -57,7 +57,7 @@ from bs4 import BeautifulSoup
 
 SOURCE_URL = (
     "https://www.baltimorecity.gov/health/our-work/permits-regulations/"
-    "public-health/recent-food-establishment-closures"
+    "public-health/recent-food-hment-closures"
 )
 
 # Headers that must all be present (case-insensitive substring match) on a
@@ -491,7 +491,7 @@ def _default_warnings_path(csv_output_path: str) -> str:
 # column lookup) has already used the original scraped header text --
 # none of that logic needs to know about these renames.
 COLUMN_RENAMES: dict[str, str] = {
-    "Name": "establishment",
+    "Name": "Establishment",
     "Reason for Closure": "Closure reason",
     "Date of Closure": "Closure date",
     "Date Approved to Re-open": "Date approved to re-open",
