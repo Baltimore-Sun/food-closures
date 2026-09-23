@@ -38,6 +38,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run scraper
+        env:
+          ARCGIS_API_KEY: ${{ secrets.ARCGIS_API_KEY }}
         run: |
           python scrape_closures.py \
             --mode "${{ inputs.mode }}" \
