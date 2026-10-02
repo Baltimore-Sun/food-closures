@@ -148,17 +148,25 @@
     // NOTE: per CARTO's own current docs, the tile URL takes it as a
     // "key" query parameter (not "api_key" -- an easy mix-up, since
     // other providers use that name).
-    cartoApiKey: "cb1_3o1l_1_75f971a9dde7332dfac59432",
+    cartoApiKey: "YOUR_CARTO_API_KEY_HERE",
 
-    // Jittering works in screen pixels at the current zoom level, and is
-    // recomputed after every zoom. Dots whose centers are closer than
-    // this many pixels are treated as overlapping and spread apart.
-    // (A dot is 20px across including its white border.)
+    // Overlapping dots are spread apart in screen pixels at the current
+    // zoom, recomputed after every zoom from the true coordinates.
+    // Dots within this many pixels of a group's first dot join that
+    // group. (A dot is 20px across including its white border.)
     jitterThresholdPx: 20,
 
-    // Minimum spacing, in pixels, between neighboring dots once they've
-    // been spread onto a circle around their group's center.
+    // Target gap, in pixels, between neighboring dots once spread.
     jitterSpacingPx: 22,
+
+    // No dot is ever drawn farther than this from its true location.
+    // Lower = dots stay closer to their real spots but overlap more;
+    // higher = more separation at mid zooms.
+    jitterMaxMeters: 100,
+
+    // If the cap above works out to fewer pixels than this (zoomed far
+    // out), spreading is skipped and dots sit at their true locations.
+    jitterMinSpreadPx: 3,
 
     // Initial view: centered on the simple average of all points, at a
     // fixed, zoomed-out "whole city" level, rather than tightly fit to
@@ -218,81 +226,95 @@
     });
   }
 
-  // Pure pixel-space jitter. Takes screen positions [{x, y}, ...] and
-  // returns new positions in the same order. Dots closer than
-  // `thresholdPx` are grouped (transitively, so a chain of near-touching
-  // dots becomes one group), and each group is spread evenly on a circle
-  // around its center, sized so neighboring dots sit `spacingPx` apart.
-  // Groups are ordered by original index, so a given dot keeps the same
-  // slot on the circle from one zoom level to the next.
-  function jitterPixelPositions(positions, thresholdPx, spacingPx) {
+  // Pure pixel-space jitter. Takes unrounded screen positions
+  // [{x, y}, ...] (in a stable order) and returns new positions in the
+  // same order.
+  //   - No chaining: each ungrouped dot starts a group and takes in only
+  //     ungrouped dots within thresholdPx of IT, so a group can never
+  //     extend more than thresholdPx from its first dot. (Chaining merged
+  //     most of the city into a few giant rings when zoomed out.)
+  //   - Groups of up to 6 go on a small circle with neighbors spacingPx
+  //     apart; larger groups fill a compact "sunflower" disc instead.
+  //   - Cap: no dot moves more than maxPx from its own true position;
+  //     if a layout would, the whole group's layout shrinks
+  //     proportionally (dots overlap rather than wander off).
+  function jitterPixelPositions(positions, thresholdPx, spacingPx, maxPx) {
     var n = positions.length;
-    var parent = [];
-    for (var i = 0; i < n; i++) parent.push(i);
+    var result = positions.map(function (p) { return { x: p.x, y: p.y }; });
+    var taken = new Array(n).fill(false);
+    var GOLDEN_ANGLE = 2.399963; // radians, ~137.5 degrees
 
-    function find(a) {
-      while (parent[a] !== a) {
-        parent[a] = parent[parent[a]];
-        a = parent[a];
-      }
-      return a;
-    }
-
-    for (var a = 0; a < n; a++) {
-      for (var b = a + 1; b < n; b++) {
-        var dx = positions[a].x - positions[b].x;
-        var dy = positions[a].y - positions[b].y;
+    for (var i = 0; i < n; i++) {
+      if (taken[i]) continue;
+      var group = [i];
+      taken[i] = true;
+      for (var j = i + 1; j < n; j++) {
+        if (taken[j]) continue;
+        var dx = positions[i].x - positions[j].x;
+        var dy = positions[i].y - positions[j].y;
         if (dx * dx + dy * dy < thresholdPx * thresholdPx) {
-          parent[find(a)] = find(b);
+          group.push(j);
+          taken[j] = true;
         }
       }
-    }
-
-    var groups = {};
-    for (var k = 0; k < n; k++) {
-      var root = find(k);
-      (groups[root] = groups[root] || []).push(k);
-    }
-
-    var result = positions.map(function (p) { return { x: p.x, y: p.y }; });
-
-    Object.keys(groups).forEach(function (root) {
-      var members = groups[root];
-      var m = members.length;
-      if (m === 1) return;
+      var m = group.length;
+      if (m === 1) continue;
 
       var cx = 0, cy = 0;
-      members.forEach(function (idx) { cx += positions[idx].x; cy += positions[idx].y; });
+      group.forEach(function (idx) { cx += positions[idx].x; cy += positions[idx].y; });
       cx /= m;
       cy /= m;
 
-      // Radius at which the gap between neighboring dots on the circle
-      // (the chord length) equals spacingPx.
-      var radius = spacingPx / (2 * Math.sin(Math.PI / m));
+      var spots = group.map(function (idx, slot) {
+        if (m <= 6) {
+          var r = spacingPx / (2 * Math.sin(Math.PI / m));
+          var a = -Math.PI / 2 + (2 * Math.PI * slot) / m;
+          return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+        }
+        var rr = spacingPx * 0.66 * Math.sqrt(slot + 0.5);
+        var t = slot * GOLDEN_ANGLE;
+        return { x: cx + rr * Math.cos(t), y: cy + rr * Math.sin(t) };
+      });
 
-      members.forEach(function (idx, slot) {
-        var angle = -Math.PI / 2 + (2 * Math.PI * slot) / m;
+      var worst = 0;
+      group.forEach(function (idx, slot) {
+        worst = Math.max(worst, Math.hypot(spots[slot].x - positions[idx].x, spots[slot].y - positions[idx].y));
+      });
+      var f = worst > maxPx ? maxPx / worst : 1;
+
+      group.forEach(function (idx, slot) {
         result[idx] = {
-          x: cx + radius * Math.cos(angle),
-          y: cy + radius * Math.sin(angle)
+          x: positions[idx].x + (spots[slot].x - positions[idx].x) * f,
+          y: positions[idx].y + (spots[slot].y - positions[idx].y) * f
         };
       });
-    });
+    }
 
     return result;
   }
 
-  // Moves each marker to its jittered position for the map's current
-  // zoom. Always starts from the true coordinates, never from a previous
-  // jittered position, so results don't drift as the user zooms around.
+  // Moves each marker to its spread position for the map's current zoom.
+  // Always starts from the true coordinates, so nothing drifts. Uses
+  // map.project/unproject (unrounded) rather than latLngToLayerPoint,
+  // whose whole-pixel rounding would break the distance cap. Entries
+  // keep their load order, which serves as each dot's stable ID, so
+  // dots keep their slots across zooms. An open popup follows its
+  // marker automatically when the marker moves.
   function applyPixelJitter(map, entries) {
     var zoom = map.getZoom();
-    var projected = entries.map(function (e) {
-      return map.project(e.trueLatLng, zoom);
-    });
-    var jittered = jitterPixelPositions(projected, CONFIG.jitterThresholdPx, CONFIG.jitterSpacingPx);
+    var metersPerPx =
+      (40075016.686 * Math.cos((map.getCenter().lat * Math.PI) / 180)) / (256 * Math.pow(2, zoom));
+    var maxPx = CONFIG.jitterMaxMeters / metersPerPx;
+
+    if (maxPx < CONFIG.jitterMinSpreadPx) {
+      entries.forEach(function (e) { e.marker.setLatLng(e.trueLatLng); });
+      return;
+    }
+
+    var projected = entries.map(function (e) { return map.project(e.trueLatLng, zoom); });
+    var spread = jitterPixelPositions(projected, CONFIG.jitterThresholdPx, CONFIG.jitterSpacingPx, maxPx);
     entries.forEach(function (e, i) {
-      e.marker.setLatLng(map.unproject(L.point(jittered[i].x, jittered[i].y), zoom));
+      e.marker.setLatLng(map.unproject(L.point(spread[i].x, spread[i].y), zoom));
     });
   }
 
