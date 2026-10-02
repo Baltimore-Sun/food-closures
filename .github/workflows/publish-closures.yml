@@ -1,0 +1,50 @@
+name: Publish closures
+
+# Manual trigger only. Publishes data/staging/closures_review.yaml, edited
+# or not, to the LIVE data/closures.csv that the map and Datawrapper table
+# read. Only addresses that changed (or new closures) are re-geocoded.
+# If the review file has a mistake, the run fails with a message saying
+# what to fix, and the live data is left as it was.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: closures-data
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Publish review file to live CSV
+        env:
+          ARCGIS_API_KEY: ${{ secrets.ARCGIS_API_KEY }}
+        run: python publish_closures.py --verbose
+
+      - name: Commit live data if changed
+        run: |
+          git add data/closures.csv data/staging/publish_warnings.txt
+          if git diff --cached --quiet; then
+            echo "Live data already matches the review file; nothing to commit."
+            exit 0
+          fi
+          row_count=$(($(wc -l < data/closures.csv) - 1))
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Publish closures (rows=${row_count})"
+          git pull --rebase
+          git push

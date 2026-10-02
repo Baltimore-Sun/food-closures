@@ -1,12 +1,17 @@
-name: Scrape Food Establishment Closures
+name: Scrape closures (to staging)
 
-# Manual trigger only. Go to Actions -> Scrape Food Establishment Closures
-# -> Run workflow to run it, optionally overriding mode/days.
+# Manual trigger only. Writes STAGING files for review:
+#   data/staging/closures_review.yaml  <- review and edit this
+#   data/staging/geocode_cache.json
+#   data/staging/scrape_warnings.txt
+# Does NOT change the live map or Datawrapper table. Run "Publish closures"
+# for that. Note: this overwrites the review file, so publish any pending
+# edits before scraping again.
 on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "recent = rolling window (overwrites CSV with just that window); full = entire table"
+        description: "recent = rolling window; full = entire table"
         required: true
         type: choice
         options:
@@ -18,9 +23,13 @@ on:
         required: true
         default: "14"
 
-# Needed so the workflow can push the updated CSV back to the repo.
 permissions:
   contents: write
+
+# Scrape and publish both commit to the repo; never let them run at once.
+concurrency:
+  group: closures-data
+  cancel-in-progress: false
 
 jobs:
   scrape:
@@ -44,26 +53,19 @@ jobs:
           python scrape_closures.py \
             --mode "${{ inputs.mode }}" \
             --days "${{ inputs.days }}" \
-            --output data/closures.csv \
-            --warnings-output data/closures_warnings.txt \
+            --staging-dir data/staging \
             --verbose
 
-      - name: Commit and push if data changed
+      - name: Commit staging files if changed
         run: |
-          # Stage both files first, then diff the index against HEAD.
-          # A plain `git diff` (no --cached) never reports anything for a
-          # brand-new, never-committed file, so it would silently skip the
-          # very first run. Staging first makes new and modified files
-          # show up the same way.
-          git add data/closures.csv data/closures_warnings.txt
-
+          git add data/staging
           if git diff --cached --quiet; then
             echo "No changes to commit."
             exit 0
           fi
-
-          row_count=$(($(wc -l < data/closures.csv) - 1))
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Update closures data (mode=${{ inputs.mode }}, days=${{ inputs.days }}, rows=${row_count})"
+          git commit -m "Scrape to staging (mode=${{ inputs.mode }}, days=${{ inputs.days }})"
+          # Pick up any commit made while this ran (e.g. a review edit).
+          git pull --rebase
           git push
