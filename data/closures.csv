@@ -1,10 +1,17 @@
 Establishment,Address,Neighborhood,Closure reason,Closure date,Date approved to re-open,Latitude,Longitude,Geocode Confidence
-China Star,"6717 Reisterstown Rd., 21215",Fallstaff,"Insect infestation, rodent infestation, improper food handling, general unsanitary conditons",9/22/2026,None reported yet,39.358943,-76.705521,100.0
+A Day in June,"2007 Fleet St., 21231",Fells Point,Operating without a valid license,10/1/2026,OOB,39.284619,-76.588392,100.0
+Miss Toya's Creole House,"1532 Havenwood Rd., 21218",Hillen,"Insect infestation, improper food handling, general unsanitary conditons",9/30/2026,10/1/2026,39.341185,-76.591515,100.0
+Chuck's Trading Post,"1506 W. 36th St., 21211",Hampden,"Rodent infestation, adulterated foods, general unsanitary conditions, repeat violations",9/30/2026,10/1/2026,39.330158,-76.639500,100.0
+Ecco Project Production Kitchen,"3300 Clipper Mill Rd., 21211",Jones Falls Area,Operating without a valid license,9/30/2026,None reported yet,39.327150,-76.637790,100.0
+Nepali & African Grocery Store,"5248 Sinclair Ln., 21206",Frankford,Operating without a valid license,9/29/2026,9/30/2026,39.323217,-76.542996,100.0
+Charmed Kitchen,"123 S. Chester St., 21231",Butcher's Hill,"Insect infestation, general unsanitary conditions",9/29/2026,9/30/2026,39.289671,-76.587143,100.0
+Popeyes Chicken & Biscuits,"5002 Sinclair Ln., 21206",Frankford,"Adulterated foods, leaking ceiling",9/29/2026,9/30/2026,39.322709,-76.547951,100.0
+California Pizza and Wings,"219 S. Broadway, 21231",Fells Point,"Insect infestation, general unsanitary conditions",9/28/2026,10/1/2026,39.288685,-76.593377,100.0
+Belvedere Cafe,"1190 Northern Pwky., 21210",North Roland Park/Poplar Hill,"Rodent infestation, general unsanitary conditions, repeat violations",9/28/2026,9/30/2026,39.363377,-76.646450,99.25
+Harbor Deli & Mart,"501 St. Paul St., 21201",Mount Vernon,Fire,9/26/2026,9/27/2026,39.295463,-76.613475,99.61
+Subway,"827 N. Charles St., 21201",Mount Vernon,"Improper food handling, improper cold holding, general unsanitary conditions",9/24/2026,None reported yet,39.299475,-76.615484,100.0
+Mary's Carryout (Stall #225),"1700 Pennsylvania Ave., 21217",Upton,"Improper sewage, adulterated foods",9/23/2026,None reported yet,39.303957,-76.635443,100.0
+Swadi Restaurant,"3316 Greenmount Ave., 21218",Oakenshawe,Fire,9/23/2026,9/24/2026,39.329009,-76.609646,100.0
+China Star,"6717 Reisterstown Rd., 21215",Fallstaff,"Insect infestation, rodent infestation, improper food handling, general unsanitary conditions",9/22/2026,9/24/2026,39.358943,-76.705521,100.0
 El Jefe Food Truck,"6629 Reisterstown Rd., 21215",Glen,"Operating without a valid license, improper food handling, general unsanitary conditions",9/21/2026,None reported yet,39.358279,-76.704376,100.0
-Ellenikon Coffee Shop,"4907 Eastern Ave., 21224",Greektown,"Insufficient refrigeration, improper handwashing",9/21/2026,None reported yet,39.286948,-76.554600,100.0
-Noor Food Mart,"1601 N. Wolfe St., 21213",Broadway East,"Insect infestation, rodent infestation, general unsanitary conditions",9/17/2026,None reported yet,39.308785,-76.591280,100.0
-Aldi Inc #30,"3250 E. Fayette St., 21224",Ellwood Park/Monument,Fire,9/16/2026,9/16/2026,39.294993,-76.571672,100.0
-China Wok,"200 N. Highland Ave., 21224",Ellwood Park/Monument,"Insect infestation, improper hand washing, general unsanitary conditions",9/16/2026,None reported yet,39.295326,-76.569982,100.0
-New York Fried Chicken,"3141 W. North Ave., 21216",Northwest Community Action,"Insect infestation, repeat viollations, general unsanitary conditions",9/15/2026,9/17/2026,39.308769,-76.670655,100.0
-Weiss Deli,"1127 E. Lombard St., 21202",Jonestown,"Rodent infestation, improper food handling, improper handwashing, general unsanitary conditions",9/14/2026,9/15/2026,39.289619,-76.600923,100.0
-Adnan & Sedek LLC,"1201 E. Preston St., 21202",Oliver,"Insect infestation, rodent infestation, general unsanitary conditions",9/10/2026,9/14/2026,39.304951,-76.601660,100.0
+Ellenikon Coffee Shop,"4907 Eastern Ave., 21224",Greektown,"Insufficient refrigeration, improper handwashing",9/21/2026,9/25/2026,39.286948,-76.554600,100.0
