@@ -485,12 +485,22 @@ def sort_by_closure_date_desc(rows: list[ClosureRow]) -> list[ClosureRow]:
 REOPEN_DATE_COLUMN_MARKER = "re-open"
 BLANK_REOPEN_DATE_PLACEHOLDER = "None reported yet"
 
+# Exact codes the city uses in the re-open column, mapped to readable
+# text. Matched case-insensitively against the whole (trimmed) cell, so
+# a word merely containing these letters is never rewritten.
+REOPEN_CODE_REPLACEMENTS: dict[str, str] = {
+    "OOB": "Out of business",
+}
+
 
 def fill_blank_reopen_dates(headers: list[str], rows: list[ClosureRow]) -> None:
     """
-    Replace a blank "Date Approved to Re-open" value with a clearer
-    placeholder -- an empty cell there just means the establishment
-    hasn't been cleared to reopen yet, not that scraping failed.
+    Clean up the "Date Approved to Re-open" column for readers:
+      - a blank cell becomes BLANK_REOPEN_DATE_PLACEHOLDER (an empty
+        cell just means the establishment hasn't been cleared to reopen
+        yet, not that scraping failed)
+      - a cell that is exactly one of REOPEN_CODE_REPLACEMENTS' codes
+        (e.g. "OOB") becomes its readable text ("Out of business")
     Modifies `rows` in place. A no-op if no matching column is found
     (e.g. the page ever drops that column), rather than failing the run.
     """
@@ -499,9 +509,13 @@ def fill_blank_reopen_dates(headers: list[str], rows: list[ClosureRow]) -> None:
         return
 
     col_name = headers[idx]
+    codes = {code.upper(): text for code, text in REOPEN_CODE_REPLACEMENTS.items()}
     for row in rows:
-        if not (row.values.get(col_name) or "").strip():
+        value = (row.values.get(col_name) or "").strip()
+        if not value:
             row.values[col_name] = BLANK_REOPEN_DATE_PLACEHOLDER
+        elif value.upper() in codes:
+            row.values[col_name] = codes[value.upper()]
 
 
 def write_csv(headers: list[str], rows: list[ClosureRow], output_path: str) -> None:
