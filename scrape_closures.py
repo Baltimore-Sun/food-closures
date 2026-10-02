@@ -19,11 +19,15 @@ By default, only rows whose "Date of Closure" falls within the last N days
 (14 by default) relative to when the script is run are kept. Pass
 --mode full to scrape every row in the table instead.
 
+Output: this script writes STAGING files only (see "Staging output"
+below) and never touches the live CSV. A person can review and edit
+data/staging/closures_review.yaml, then publish_closures.py turns it into
+the live data/closures.csv.
+
 Usage:
-    python scrape_closures.py                       # last 14 days -> closures_recent.csv
-    python scrape_closures.py --mode full            # entire table -> closures_full.csv
-    python scrape_closures.py --days 30 --output out.csv
-    python scrape_closures.py --mode full --output all_closures.csv --verbose
+    python scrape_closures.py                   # last 14 days -> data/staging/
+    python scrape_closures.py --mode full       # entire table -> data/staging/
+    python scrape_closures.py --days 30 --verbose
 
 Geocoding: each row's Address is geocoded via the ArcGIS World Geocoding
 Service, and the resulting coordinates are spatially joined against
@@ -43,6 +47,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import logging
 import os
 import re
@@ -531,11 +536,6 @@ def write_csv(headers: list[str], rows: list[ClosureRow], output_path: str) -> N
     log.info("Wrote %d row(s) to %s", len(rows), output_path)
 
 
-def _default_warnings_path(csv_output_path: str) -> str:
-    root, _ext = os.path.splitext(csv_output_path)
-    return f"{root}_warnings.txt"
-
-
 # Display-name renames applied to the final CSV only, after every other
 # step (table matching, date-column detection, geocoding's "Address"
 # column lookup) has already used the original scraped header text --
@@ -672,6 +672,55 @@ def lookup_neighborhood(
     return features[0].get("attributes", {}).get("Name") or None
 
 
+# Columns the pipeline computes from the Address. They never appear in
+# the staging review YAML (so they can't be hand-edited into a wrong
+# location); publishing fills them from the geocode cache, or re-geocodes
+# an address the reviewer changed.
+COMPUTED_COLUMNS = ("Neighborhood", "Latitude", "Longitude", "Geocode Confidence")
+
+
+def layout_with_computed_columns(headers: list[str]) -> list[str]:
+    """
+    Return `headers` with the computed columns placed: Neighborhood right
+    after the Address column, Latitude/Longitude/Geocode Confidence at the
+    end. If there's no Address column, the computed columns are all
+    appended at the end. Any computed column already in `headers` is
+    moved, not duplicated.
+    """
+    base = [h for h in headers if h not in COMPUTED_COLUMNS]
+    address_idx = _find_column(base, "address")
+    if address_idx is None:
+        return base + list(COMPUTED_COLUMNS)
+    return (
+        base[: address_idx + 1]
+        + ["Neighborhood"]
+        + base[address_idx + 1 :]
+        + ["Latitude", "Longitude", "Geocode Confidence"]
+    )
+
+
+def geocode_to_computed_values(address: str, api_key: str) -> dict[str, str]:
+    """
+    Geocode one street address (e.g. "2334 N. Charles St., 21218") and
+    look up its neighborhood. Returns a dict with every COMPUTED_COLUMNS
+    key; values are "" for anything that couldn't be determined (warnings
+    are logged by the underlying helpers).
+    """
+    values = {col: "" for col in COMPUTED_COLUMNS}
+    full_address = f"{address}, {GEOCODE_LOCALITY_SUFFIX}"
+    lat, lon, score = geocode_address(full_address, api_key)
+    if lat is None or lon is None:
+        return values
+
+    values["Latitude"] = f"{lat:.6f}"
+    values["Longitude"] = f"{lon:.6f}"
+    values["Geocode Confidence"] = "" if score is None else str(score)
+    neighborhood = lookup_neighborhood(lat, lon)
+    if neighborhood:
+        values["Neighborhood"] = neighborhood
+    return values
+
+
 def enrich_with_geocoding(
     headers: list[str],
     rows: list[ClosureRow],
@@ -680,17 +729,11 @@ def enrich_with_geocoding(
 ) -> list[str]:
     """
     For each row, geocode its Address and spatially join the result
-    against Baltimore's neighborhood boundaries. Adds/populates, on each
-    row's `values` dict, in place:
-      - "Neighborhood" (from the boundary layer's Name field)
-      - "Latitude", "Longitude" (from the geocoder)
-      - "Geocode Confidence" (ArcGIS's 0-100 match score)
-
-    Returns the updated header list: Neighborhood is inserted immediately
-    after the Address column; Latitude, Longitude, and Geocode
-    Confidence are appended at the end. If no Address column can be
-    found at all, logs a warning and returns `headers` unchanged (no
-    columns added) rather than failing the whole run.
+    against Baltimore's neighborhood boundaries, filling the
+    COMPUTED_COLUMNS on each row's `values` dict in place. Returns the
+    updated header list (see layout_with_computed_columns). If no Address
+    column can be found at all, logs a warning and returns `headers`
+    unchanged rather than failing the whole run.
     """
     address_idx = _find_column(headers, "address")
     if address_idx is None:
@@ -701,63 +744,37 @@ def enrich_with_geocoding(
         return headers
 
     address_col = headers[address_idx]
-    new_headers = (
-        headers[: address_idx + 1]
-        + ["Neighborhood"]
-        + headers[address_idx + 1 :]
-        + ["Latitude", "Longitude", "Geocode Confidence"]
-    )
-
     for i, row in enumerate(rows):
-        row.values.setdefault("Neighborhood", "")
-        row.values.setdefault("Latitude", "")
-        row.values.setdefault("Longitude", "")
-        row.values.setdefault("Geocode Confidence", "")
+        for col in COMPUTED_COLUMNS:
+            row.values.setdefault(col, "")
 
         address = (row.values.get(address_col) or "").strip()
         if not address:
             log.warning("Row %d has a blank Address; skipping geocoding for it.", i)
             continue
 
-        full_address = f"{address}, {GEOCODE_LOCALITY_SUFFIX}"
-        lat, lon, score = geocode_address(full_address, api_key)
-
-        if lat is not None and lon is not None:
-            row.values["Latitude"] = f"{lat:.6f}"
-            row.values["Longitude"] = f"{lon:.6f}"
-            row.values["Geocode Confidence"] = "" if score is None else str(score)
-
-            neighborhood = lookup_neighborhood(lat, lon)
-            if neighborhood:
-                row.values["Neighborhood"] = neighborhood
+        row.values.update(geocode_to_computed_values(address, api_key))
 
         if request_delay_seconds and i < len(rows) - 1:
             time.sleep(request_delay_seconds)
 
-    return new_headers
+    return layout_with_computed_columns(headers)
 
 
-def write_warnings_file(
-    records: list[str], path: str, mode: str, days: int, source_url: str
-) -> None:
+def write_warnings_file(records: list[str], path: str, context_lines: list[str]) -> None:
     """
     Write a plain-text summary of any WARNING+ messages from the run (e.g.
-    unparseable dates, ragged rows) to `path`, overwriting it each time --
-    this is a rolling snapshot describing the most recent run, not a log
-    that accumulates. Always writes the file, even when there were no
-    warnings, so its absence never has to be interpreted as "no warnings
-    checked yet" vs. "not run".
+    unparseable dates, ragged rows, failed geocodes) to `path`,
+    overwriting it each time -- a snapshot of the most recent run, not an
+    accumulating log. `context_lines` describe the run (when, what source,
+    what mode). Always writes the file, even with no warnings, so its
+    absence never has to be interpreted.
     """
     parent_dir = os.path.dirname(path)
     if parent_dir:
         os.makedirs(parent_dir, exist_ok=True)
 
-    lines = [
-        f"Scrape run: {datetime.now().isoformat(timespec='seconds')}",
-        f"Source: {source_url}",
-        f"Mode: {mode}" + (f" (days={days})" if mode == "recent" else ""),
-        "",
-    ]
+    lines = list(context_lines) + [""]
     if records:
         lines.append(f"{len(records)} warning(s):")
         lines.extend(records)
@@ -769,10 +786,122 @@ def write_warnings_file(
     log.info("Wrote warnings file to %s", path)
 
 
+# ---------------------------------------------------------------------
+# Staging output
+# ---------------------------------------------------------------------
+# The scraper never writes the live CSV. It writes a staging folder:
+#   closures_review.yaml  -- the human-editable review file
+#   geocode_cache.json    -- coordinates/neighborhood per row id, keyed to
+#                            the address that was geocoded, so publishing
+#                            only re-geocodes addresses a reviewer changed
+#   scrape_warnings.txt   -- data-quality warnings from this scrape
+# The separate publish step (publish_closures.py) turns the review file
+# into the live data/closures.csv.
+
+DEFAULT_STAGING_DIR = os.path.join("data", "staging")
+REVIEW_FILENAME = "closures_review.yaml"
+GEOCODE_CACHE_FILENAME = "geocode_cache.json"
+SCRAPE_WARNINGS_FILENAME = "scrape_warnings.txt"
+
+_PLAIN_YAML_KEY = re.compile(r"[A-Za-z][A-Za-z0-9 _\-/().]*")
+
+REVIEW_FILE_INSTRUCTIONS = """\
+# STAGING REVIEW FILE -- nothing here is live until "Publish closures" runs.
+#
+# How to review:
+#   - Fix a value by editing the text inside its quotes, e.g.
+#       Establishment: "China Star"
+#   - Keep the double quotes around every value.
+#   - To drop a closure from the live data, delete its whole block, from
+#     its "- id:" line down to the line before the next "- id:".
+#   - Don't change id numbers. To add a closure, copy a block and delete
+#     its id line.
+#   - Neighborhood and map coordinates aren't listed here. Publishing
+#     fills them in, and re-looks them up for any address you changed.
+#   - Commit your changes, then run "Publish closures" in the Actions tab.
+#
+# The next scrape overwrites this file, so publish any edits first.
+"""
+
+
+def _yaml_key(key: str) -> str:
+    return key if _PLAIN_YAML_KEY.fullmatch(key) else json.dumps(key, ensure_ascii=False)
+
+
+def _yaml_value(value) -> str:
+    # A JSON string literal is also a valid YAML double-quoted scalar, so
+    # json.dumps gives correct quoting/escaping for any text.
+    return json.dumps("" if value is None else str(value), ensure_ascii=False)
+
+
+def review_fields(headers: list[str]) -> list[str]:
+    """The columns that go in the review file: everything not computed."""
+    return [h for h in headers if h not in COMPUTED_COLUMNS]
+
+
+def write_review_yaml(
+    headers: list[str], rows: list[ClosureRow], path: str, context_lines: list[str]
+) -> None:
+    """
+    Write the human-editable review file: one block per row, a numeric
+    id first, then each non-computed field with its value in double
+    quotes, blank line between blocks. Written by hand (not a YAML
+    library) so the layout stays predictable for people editing it.
+    """
+    parent_dir = os.path.dirname(path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+
+    fields = review_fields(headers)
+    out = [REVIEW_FILE_INSTRUCTIONS.rstrip("\n"), "#"]
+    out.extend(f"# {line}" if line else "#" for line in context_lines)
+    out.append("")
+
+    if not rows:
+        out.append("[]  # no closures in this scrape")
+    for row_id, row in enumerate(rows, start=1):
+        out.append(f"- id: {row_id}")
+        for field in fields:
+            out.append(f"  {_yaml_key(field)}: {_yaml_value(row.values.get(field, ''))}")
+        out.append("")
+
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(out).rstrip("\n") + "\n")
+    log.info("Wrote review file with %d row(s) to %s", len(rows), path)
+
+
+def write_geocode_cache(headers: list[str], rows: list[ClosureRow], path: str) -> None:
+    """
+    Record each row's computed values keyed by its review-file id, along
+    with the exact address they were computed from. Publishing reuses an
+    entry only when the reviewed address still matches.
+    """
+    address_idx = _find_column(headers, "address")
+    address_col = headers[address_idx] if address_idx is not None else None
+
+    entries = {}
+    for row_id, row in enumerate(rows, start=1):
+        entry = {"Address": (row.values.get(address_col, "") if address_col else "").strip()}
+        for col in COMPUTED_COLUMNS:
+            entry[col] = row.values.get(col, "")
+        entries[str(row_id)] = entry
+
+    parent_dir = os.path.dirname(path)
+    if parent_dir:
+        os.makedirs(parent_dir, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(
+            {"generated": datetime.now().isoformat(timespec="seconds"), "rows": entries},
+            f, indent=2, ensure_ascii=False,
+        )
+        f.write("\n")
+    log.info("Wrote geocode cache for %d row(s) to %s", len(entries), path)
+
+
 def run(
     mode: str = "recent",
     days: int = DEFAULT_WINDOW_DAYS,
-    output_path: Optional[str] = None,
+    staging_dir: str = DEFAULT_STAGING_DIR,
     url: str = SOURCE_URL,
     reference_date: Optional[date] = None,
     warnings_output_path: Optional[str] = None,
@@ -781,19 +910,13 @@ def run(
 ) -> str:
     """
     Orchestrates fetch -> find table -> parse -> (optionally filter) ->
-    (optionally geocode + neighborhood lookup) -> write.
-    Returns the output path used. Raises ScraperError subclasses on failure.
-
-    On success, also writes a companion .txt file listing any WARNING-level
-    messages logged during the run (unparseable dates, ragged rows, failed
-    geocodes, etc.). On failure (fetch error / table not found / geocoding
-    misconfigured), no CSV or warnings file is written -- the run already
-    stops with a logged error and non-zero exit.
+    sort -> (optionally geocode) -> clean up values -> write staging files.
+    Never touches the live CSV. Returns the review file's path. Raises
+    ScraperError subclasses on failure, in which case no staging files
+    are written.
     """
-    if output_path is None:
-        output_path = "closures_full.csv" if mode == "full" else "closures_recent.csv"
     if warnings_output_path is None:
-        warnings_output_path = _default_warnings_path(output_path)
+        warnings_output_path = os.path.join(staging_dir, SCRAPE_WARNINGS_FILENAME)
 
     if geocode and not api_key:
         raise GeocodingConfigError(
@@ -801,6 +924,12 @@ def run(
             "--arcgis-api-key, set the ARCGIS_API_KEY environment variable, "
             "or pass --no-geocode to skip geocoding and neighborhood lookup."
         )
+
+    context_lines = [
+        f"Scrape run: {datetime.now().isoformat(timespec='seconds')}",
+        f"Source: {url}",
+        f"Mode: {mode}" + (f" (days={days})" if mode == "recent" else ""),
+    ]
 
     collector = _WarningCollector()
     collector.addFilter(_SecretRedactingFilter(api_key))
@@ -826,19 +955,21 @@ def run(
         fill_blank_reopen_dates(headers, selected)
         headers = apply_column_renames(headers, selected)
 
-        write_csv(headers, selected, output_path)
+        review_path = os.path.join(staging_dir, REVIEW_FILENAME)
+        write_review_yaml(headers, selected, review_path, context_lines)
+        write_geocode_cache(headers, selected, os.path.join(staging_dir, GEOCODE_CACHE_FILENAME))
     finally:
         log.removeHandler(collector)
 
-    write_warnings_file(
-        collector.records, warnings_output_path, mode=mode, days=days, source_url=url
-    )
-    return output_path
+    write_warnings_file(collector.records, warnings_output_path, context_lines)
+    return review_path
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Scrape Baltimore City food establishment closures."
+        description="Scrape Baltimore City food establishment closures into "
+                    "staging files for review. Does not update the live CSV; "
+                    "run publish_closures.py for that."
     )
     parser.add_argument(
         "--mode",
@@ -854,17 +985,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help=f"Window size in days for --mode recent (default: {DEFAULT_WINDOW_DAYS}).",
     )
     parser.add_argument(
-        "--output",
-        default=None,
-        help="Output CSV path. Defaults to closures_recent.csv or "
-             "closures_full.csv depending on --mode.",
+        "--staging-dir",
+        default=DEFAULT_STAGING_DIR,
+        help=f"Folder for the staging files (default: {DEFAULT_STAGING_DIR}).",
     )
     parser.add_argument(
         "--warnings-output",
         default=None,
-        help="Path for the warnings .txt file. Defaults to <output>, with "
-             "its extension replaced by '_warnings.txt' (e.g. "
-             "data/closures.csv -> data/closures_warnings.txt).",
+        help=f"Path for the warnings .txt file (default: <staging-dir>/{SCRAPE_WARNINGS_FILENAME}).",
     )
     parser.add_argument(
         "--url",
@@ -881,9 +1009,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--no-geocode",
         action="store_true",
-        help="Skip geocoding and neighborhood lookup entirely -- the "
-             "Neighborhood/Latitude/Longitude/Geocode Confidence columns "
-             "will not be added.",
+        help="Skip geocoding and neighborhood lookup. Publishing will then "
+             "geocode every row.",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -893,32 +1020,30 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[list[str]] = None) -> int:
-    args = build_arg_parser().parse_args(argv)
-
-    api_key = args.arcgis_api_key or os.environ.get("ARCGIS_API_KEY")
-
+def configure_logging(verbose: bool, api_key: Optional[str]) -> None:
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s %(levelname)-7s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     # Defense-in-depth: never let the API key value itself reach a log
-    # line, regardless of where in the call stack it might turn up.
-    # NOTE: filters must be attached to the *handler*, not a Logger
-    # object, to be consulted for records propagating up from child
-    # loggers (e.g. "scrape_closures", or urllib3's own debug logging
-    # under --verbose) -- a filter on the root Logger itself is only
-    # ever consulted for records that originate at the root logger.
+    # line. Filters must be attached to the *handler*, not a Logger, to
+    # be consulted for records propagating up from child loggers.
     redactor = _SecretRedactingFilter(api_key)
     for handler in logging.getLogger().handlers:
         handler.addFilter(redactor)
 
+
+def main(argv: Optional[list[str]] = None) -> int:
+    args = build_arg_parser().parse_args(argv)
+    api_key = args.arcgis_api_key or os.environ.get("ARCGIS_API_KEY")
+    configure_logging(args.verbose, api_key)
+
     try:
-        output_path = run(
+        review_path = run(
             mode=args.mode,
             days=args.days,
-            output_path=args.output,
+            staging_dir=args.staging_dir,
             url=args.url,
             warnings_output_path=args.warnings_output,
             geocode=not args.no_geocode,
@@ -934,7 +1059,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         log.error(str(exc))
         return 3
 
-    print(output_path)
+    print(review_path)
     return 0
 
 

@@ -1,0 +1,379 @@
+#!/usr/bin/env python3
+"""
+publish_closures.py
+
+Turns the staging review file into the live data the map and Datawrapper
+table read:
+
+    data/staging/closures_review.yaml  (written by scrape_closures.py,
+                                        optionally hand-edited)
+        -> validate
+        -> fill Neighborhood / Latitude / Longitude / Geocode Confidence
+           from data/staging/geocode_cache.json, re-geocoding only rows
+           whose Address no longer matches what was geocoded (or that are
+           new, or that had no coordinates)
+        -> apply the same output rules as the scraper (re-open text
+           substitutions, newest-first sort, column order)
+        -> data/closures.csv  (LIVE)
+
+Publishing uses whatever the review file currently holds, edited or not.
+If the review file is invalid, nothing is written and the live CSV stays
+as it was.
+
+Usage:
+    python publish_closures.py
+    python publish_closures.py --review data/staging/closures_review.yaml \\
+        --output data/closures.csv
+
+Exit codes:
+    0  success
+    3  an address needs geocoding but no ArcGIS API key was provided
+    4  the review file is missing or invalid
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import logging
+import os
+import sys
+import time
+from datetime import datetime
+from typing import Optional
+
+import yaml
+
+import scrape_closures as sc
+
+log = logging.getLogger("scrape_closures")  # share the scraper's logger/handlers
+
+DEFAULT_REVIEW_PATH = os.path.join(sc.DEFAULT_STAGING_DIR, sc.REVIEW_FILENAME)
+DEFAULT_CACHE_PATH = os.path.join(sc.DEFAULT_STAGING_DIR, sc.GEOCODE_CACHE_FILENAME)
+DEFAULT_OUTPUT_PATH = os.path.join("data", "closures.csv")
+DEFAULT_WARNINGS_PATH = os.path.join(sc.DEFAULT_STAGING_DIR, "publish_warnings.txt")
+
+# Fields every record must have (the value may be blank). These are what
+# the map, sorting, and geocoding depend on.
+REQUIRED_FIELDS = ("Establishment", "Address", "Closure date")
+
+# Column order used when the review file has no records to take it from.
+DEFAULT_FIELD_ORDER = [
+    "Establishment", "Address", "Closure reason", "Closure date", "Date approved to re-open",
+]
+
+
+class ReviewFileError(sc.ScraperError):
+    pass
+
+
+# ---------------------------------------------------------------------
+# Loading and validation
+# ---------------------------------------------------------------------
+def _describe_record(index: int, record: dict) -> str:
+    """Human-friendly pointer to a record, for error messages."""
+    label = f"record #{index + 1}"
+    if isinstance(record, dict):
+        if record.get("id") is not None:
+            label += f" (id {record['id']})"
+        name = record.get("Establishment")
+        if isinstance(name, str) and name.strip():
+            label += f' "{name.strip()}"'
+    return label
+
+
+def load_review_records(path: str) -> list[dict]:
+    """
+    Parse and validate the review YAML. Returns a list of records, each a
+    dict with an optional int "id" and string values for every other
+    field. Raises ReviewFileError with a specific, fixable message on any
+    problem -- in that case nothing gets published.
+    """
+    if not os.path.exists(path):
+        raise ReviewFileError(
+            f"Review file not found: {path}. Run the scraper first to create it."
+        )
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except yaml.YAMLError as exc:
+        where = ""
+        mark = getattr(exc, "problem_mark", None)
+        if mark is not None:
+            where = f" near line {mark.line + 1}"
+        raise ReviewFileError(
+            f"The review file isn't valid YAML{where}. This usually means a "
+            f"missing or extra double quote around a value, or a line whose "
+            f"indentation changed. Details: {exc}"
+        ) from exc
+
+    if data is None:
+        data = []
+    if not isinstance(data, list):
+        raise ReviewFileError(
+            "The review file should be a list of closures, each starting "
+            "with '- id:'. Its overall structure was changed."
+        )
+
+    records: list[dict] = []
+    seen_ids: dict[int, int] = {}
+    for i, raw in enumerate(data):
+        if not isinstance(raw, dict):
+            raise ReviewFileError(
+                f"{_describe_record(i, raw)} isn't a block of 'Field: \"value\"' "
+                f"lines. Check its indentation."
+            )
+
+        record: dict = {}
+        for key, value in raw.items():
+            key_str = str(key)
+            if key_str == "id":
+                if value is None:
+                    continue  # blank id line = treat as a new closure
+                if isinstance(value, bool) or not isinstance(value, int):
+                    raise ReviewFileError(
+                        f"{_describe_record(i, raw)} has id {value!r}; ids must be "
+                        f"whole numbers. Don't change ids; delete the id line "
+                        f"for a new closure."
+                    )
+                if value in seen_ids:
+                    raise ReviewFileError(
+                        f"id {value} appears twice (records #{seen_ids[value] + 1} "
+                        f"and #{i + 1}). Each id must be unique; delete the id "
+                        f"line on a copied block."
+                    )
+                seen_ids[value] = i
+                record["id"] = value
+                continue
+
+            if key_str in sc.COMPUTED_COLUMNS:
+                log.warning(
+                    "%s has a %r line; it's filled in automatically, so the "
+                    "value in the review file was ignored.",
+                    _describe_record(i, raw), key_str,
+                )
+                continue
+
+            if isinstance(value, bool):
+                raise ReviewFileError(
+                    f"{_describe_record(i, raw)}: the {key_str!r} value reads as "
+                    f"yes/no rather than text. Put the value in double quotes."
+                )
+            if isinstance(value, (list, dict)):
+                raise ReviewFileError(
+                    f"{_describe_record(i, raw)}: the {key_str!r} value isn't "
+                    f"plain text. Put the whole value in double quotes on one line."
+                )
+            record[key_str] = "" if value is None else str(value).strip()
+
+        missing = [f for f in REQUIRED_FIELDS if f not in record]
+        if missing:
+            raise ReviewFileError(
+                f"{_describe_record(i, raw)} is missing the line(s): "
+                f"{', '.join(missing)}. Restore them (the value can be blank \"\")."
+            )
+        records.append(record)
+
+    return records
+
+
+def load_geocode_cache(path: str) -> dict[str, dict]:
+    """Load the scraper's geocode cache. A missing or unreadable cache just
+    means every row gets geocoded fresh, so that's a warning, not an error."""
+    if not os.path.exists(path):
+        log.warning("Geocode cache not found at %s; every row will be geocoded.", path)
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        rows = data.get("rows", {})
+        return rows if isinstance(rows, dict) else {}
+    except (OSError, ValueError) as exc:
+        log.warning("Couldn't read geocode cache %s (%s); every row will be geocoded.", path, exc)
+        return {}
+
+
+# ---------------------------------------------------------------------
+# Building the live rows
+# ---------------------------------------------------------------------
+def field_order(records: list[dict]) -> list[str]:
+    """Editable columns in the order they appear in the review file."""
+    order: list[str] = []
+    for record in records:
+        for key in record:
+            if key != "id" and key not in order:
+                order.append(key)
+    return order or list(DEFAULT_FIELD_ORDER)
+
+
+def build_rows(records: list[dict], fields: list[str]) -> list[sc.ClosureRow]:
+    """
+    Turn records into ClosureRows with parsed closure dates. Uses the same
+    rules as the scraper: strict parse first, then the neighbor-based
+    month/year inference for a date with a legible day. Records are in
+    review-file order, which the scraper wrote newest-first, so neighbors
+    are still adjacent.
+    """
+    raw_dates = [r.get("Closure date", "") for r in records]
+    strict = [sc.parse_date_cell(d) for d in raw_dates]
+
+    rows: list[sc.ClosureRow] = []
+    for i, record in enumerate(records):
+        parsed = strict[i]
+        if parsed is None and raw_dates[i]:
+            prev_date = strict[i - 1] if i > 0 else None
+            next_date = strict[i + 1] if i < len(records) - 1 else None
+            parsed = sc._infer_date_from_neighbors(raw_dates[i], prev_date, next_date)
+            if parsed is not None:
+                log.warning(
+                    "%s: Closure date %r did not parse; inferred %s from the "
+                    "surrounding rows.",
+                    _describe_record(i, record), raw_dates[i], parsed.isoformat(),
+                )
+            else:
+                log.warning(
+                    "%s: Closure date %r could not be read; it's published as "
+                    "written and sorted to the bottom.",
+                    _describe_record(i, record), raw_dates[i],
+                )
+
+        values = {f: record.get(f, "") for f in fields}
+        rows.append(sc.ClosureRow(values=values, date_of_closure_raw=raw_dates[i], date_of_closure=parsed))
+    return rows
+
+
+def fill_computed_columns(
+    records: list[dict],
+    rows: list[sc.ClosureRow],
+    cache: dict[str, dict],
+    api_key: Optional[str],
+    request_delay_seconds: float = sc.GEOCODE_REQUEST_DELAY_SECONDS,
+) -> int:
+    """
+    Fill Neighborhood/Latitude/Longitude/Geocode Confidence on each row.
+    Reuses the cached values when the row's id is in the cache, its
+    address is unchanged, and the cache has coordinates; otherwise
+    geocodes the address. Returns how many addresses were geocoded.
+    Raises GeocodingConfigError if geocoding is needed with no API key.
+    """
+    geocoded = 0
+    for i, (record, row) in enumerate(zip(records, rows)):
+        address = row.values.get("Address", "").strip()
+        cached = cache.get(str(record["id"])) if "id" in record else None
+
+        if cached and cached.get("Address", "").strip() == address and cached.get("Latitude"):
+            for col in sc.COMPUTED_COLUMNS:
+                row.values[col] = cached.get(col, "")
+            continue
+
+        for col in sc.COMPUTED_COLUMNS:
+            row.values[col] = ""
+        if not address:
+            log.warning("%s has a blank Address; it won't appear on the map.", _describe_record(i, record))
+            continue
+        if not api_key:
+            raise sc.GeocodingConfigError(
+                f"{_describe_record(i, record)} needs geocoding (new or changed "
+                f"address) but no ArcGIS API key was provided. Set ARCGIS_API_KEY."
+            )
+
+        reason = "changed address" if cached else ("new closure" if "id" not in record else "no cached coordinates")
+        log.info("Geocoding %s (%s): %r", _describe_record(i, record), reason, address)
+        if geocoded and request_delay_seconds:
+            time.sleep(request_delay_seconds)
+        row.values.update(sc.geocode_to_computed_values(address, api_key))
+        geocoded += 1
+        if not row.values["Latitude"]:
+            log.warning("%s: address %r could not be geocoded; it won't appear on the map.",
+                        _describe_record(i, record), address)
+    return geocoded
+
+
+def publish(
+    review_path: str = DEFAULT_REVIEW_PATH,
+    cache_path: str = DEFAULT_CACHE_PATH,
+    output_path: str = DEFAULT_OUTPUT_PATH,
+    warnings_output_path: str = DEFAULT_WARNINGS_PATH,
+    api_key: Optional[str] = None,
+) -> int:
+    """
+    Validate the review file and write the live CSV. Returns the number of
+    rows published. On any error, nothing is written.
+    """
+    collector = sc._WarningCollector()
+    collector.addFilter(sc._SecretRedactingFilter(api_key))
+    log.addHandler(collector)
+    try:
+        records = load_review_records(review_path)
+        cache = load_geocode_cache(cache_path)
+
+        fields = field_order(records)
+        rows = build_rows(records, fields)
+        geocoded = fill_computed_columns(records, rows, cache, api_key)
+
+        rows = sc.sort_by_closure_date_desc(rows)
+        headers = sc.layout_with_computed_columns(fields)
+        sc.fill_blank_reopen_dates(headers, rows)
+        sc.write_csv(headers, rows, output_path)
+        log.info("Published %d row(s); geocoded %d changed or new address(es).", len(rows), geocoded)
+    finally:
+        log.removeHandler(collector)
+
+    sc.write_warnings_file(
+        collector.records,
+        warnings_output_path,
+        [
+            f"Publish run: {datetime.now().isoformat(timespec='seconds')}",
+            f"Review file: {review_path}",
+            f"Published to: {output_path}",
+        ],
+    )
+    return len(rows)
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Publish the staging review file to the live closures CSV."
+    )
+    parser.add_argument("--review", default=DEFAULT_REVIEW_PATH,
+                        help=f"Review YAML to publish (default: {DEFAULT_REVIEW_PATH}).")
+    parser.add_argument("--cache", default=DEFAULT_CACHE_PATH,
+                        help=f"Geocode cache from the scraper (default: {DEFAULT_CACHE_PATH}).")
+    parser.add_argument("--output", default=DEFAULT_OUTPUT_PATH,
+                        help=f"Live CSV to write (default: {DEFAULT_OUTPUT_PATH}).")
+    parser.add_argument("--warnings-output", default=DEFAULT_WARNINGS_PATH,
+                        help=f"Warnings file (default: {DEFAULT_WARNINGS_PATH}).")
+    parser.add_argument("--arcgis-api-key", default=None,
+                        help="ArcGIS API key, needed only if an address changed or is "
+                             "new. Defaults to the ARCGIS_API_KEY environment variable.")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable debug logging.")
+    return parser
+
+
+def main(argv: Optional[list[str]] = None) -> int:
+    args = build_arg_parser().parse_args(argv)
+    api_key = args.arcgis_api_key or os.environ.get("ARCGIS_API_KEY")
+    sc.configure_logging(args.verbose, api_key)
+
+    try:
+        count = publish(
+            review_path=args.review,
+            cache_path=args.cache,
+            output_path=args.output,
+            warnings_output_path=args.warnings_output,
+            api_key=api_key,
+        )
+    except ReviewFileError as exc:
+        log.error("Nothing was published. %s", exc)
+        return 4
+    except sc.GeocodingConfigError as exc:
+        log.error("Nothing was published. %s", exc)
+        return 3
+
+    print(f"{args.output} ({count} rows)")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
