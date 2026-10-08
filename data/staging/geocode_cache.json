@@ -1,0 +1,110 @@
+{
+  "generated": "2026-10-08T16:48:24",
+  "rows": {
+    "1": {
+      "Address": "3601 Pulaski Hwy., 21224",
+      "Neighborhood": "Baltimore Highlands",
+      "Latitude": "39.296098",
+      "Longitude": "-76.567644",
+      "Geocode Confidence": "100.0"
+    },
+    "2": {
+      "Address": "4715 Eastern Ave., 21224",
+      "Neighborhood": "Greektown",
+      "Latitude": "39.286866",
+      "Longitude": "-76.556047",
+      "Geocode Confidence": "100.0"
+    },
+    "3": {
+      "Address": "1431 John St., 21217",
+      "Neighborhood": "Bolton Hill",
+      "Latitude": "39.308449",
+      "Longitude": "-76.623707",
+      "Geocode Confidence": "100.0"
+    },
+    "4": {
+      "Address": "2407 Frederick Ave., 21223",
+      "Neighborhood": "Millhill",
+      "Latitude": "39.282595",
+      "Longitude": "-76.655244",
+      "Geocode Confidence": "100.0"
+    },
+    "5": {
+      "Address": "2007 Fleet St., 21231",
+      "Neighborhood": "Fells Point",
+      "Latitude": "39.284619",
+      "Longitude": "-76.588392",
+      "Geocode Confidence": "100.0"
+    },
+    "6": {
+      "Address": "1532 Havenwood Rd., 21218",
+      "Neighborhood": "Hillen",
+      "Latitude": "39.341185",
+      "Longitude": "-76.591515",
+      "Geocode Confidence": "100.0"
+    },
+    "7": {
+      "Address": "1506 W. 36th St., 21211",
+      "Neighborhood": "Hampden",
+      "Latitude": "39.330158",
+      "Longitude": "-76.639500",
+      "Geocode Confidence": "100.0"
+    },
+    "8": {
+      "Address": "3300 Clipper Mill Rd., 21211",
+      "Neighborhood": "Jones Falls Area",
+      "Latitude": "39.327150",
+      "Longitude": "-76.637790",
+      "Geocode Confidence": "100.0"
+    },
+    "9": {
+      "Address": "5248 Sinclair Ln., 21206",
+      "Neighborhood": "Frankford",
+      "Latitude": "39.323217",
+      "Longitude": "-76.542996",
+      "Geocode Confidence": "100.0"
+    },
+    "10": {
+      "Address": "123 S. Chester St., 21231",
+      "Neighborhood": "Butcher's Hill",
+      "Latitude": "39.289671",
+      "Longitude": "-76.587143",
+      "Geocode Confidence": "100.0"
+    },
+    "11": {
+      "Address": "5002 Sinclair Ln., 21206",
+      "Neighborhood": "Frankford",
+      "Latitude": "39.322709",
+      "Longitude": "-76.547951",
+      "Geocode Confidence": "100.0"
+    },
+    "12": {
+      "Address": "219 S. Broadway, 21231",
+      "Neighborhood": "Fells Point",
+      "Latitude": "39.288685",
+      "Longitude": "-76.593377",
+      "Geocode Confidence": "100.0"
+    },
+    "13": {
+      "Address": "1190 Northern Pwky., 21210",
+      "Neighborhood": "North Roland Park/Poplar Hill",
+      "Latitude": "39.363377",
+      "Longitude": "-76.646450",
+      "Geocode Confidence": "99.25"
+    },
+    "14": {
+      "Address": "501 St. Paul St., 21201",
+      "Neighborhood": "Mount Vernon",
+      "Latitude": "39.295463",
+      "Longitude": "-76.613475",
+      "Geocode Confidence": "99.61"
+    },
+    "15": {
+      "Address": "827 N. Charles St., 21201",
+      "Neighborhood": "Mount Vernon",
+      "Latitude": "39.299475",
+      "Longitude": "-76.615484",
+      "Geocode Confidence": "100.0"
+    }
+  }
+}

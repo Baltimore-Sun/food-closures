@@ -1,0 +1,124 @@
+# STAGING REVIEW FILE -- nothing here is live until "Publish closures" runs.
+#
+# How to review:
+#   - Fix a value by editing the text inside its quotes, e.g.
+#       Establishment: "China Star"
+#   - Keep the double quotes around every value.
+#   - To drop a closure from the live data, delete its whole block, from
+#     its "- id:" line down to the line before the next "- id:".
+#   - Don't change id numbers. To add a closure, copy a block and delete
+#     its id line.
+#   - Neighborhood and map coordinates aren't listed here. Publishing
+#     fills them in, and re-looks them up for any address you changed.
+#   - Commit your changes, then run "Publish closures" in the Actions tab.
+#
+# The next scrape overwrites this file, so publish any edits first.
+#
+# Scrape run: 2026-10-08T16:48:15
+# Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
+# Mode: recent (days=14)
+
+- id: 1
+  Establishment: "Latin American Flavor"
+  Address: "3601 Pulaski Hwy., 21224"
+  Closure reason: "Improper food handling, repeat violations"
+  Closure date: "10/7/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 2
+  Establishment: "Pollo Campstre"
+  Address: "4715 Eastern Ave., 21224"
+  Closure reason: "Insufficient refrigeration"
+  Closure date: "10/6/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 3
+  Establishment: "On the Hill Cafe & Market"
+  Address: "1431 John St., 21217"
+  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
+  Closure date: "10/6/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 4
+  Establishment: "Crispy Bite Grille"
+  Address: "2407 Frederick Ave., 21223"
+  Closure reason: "Operating without a valid license"
+  Closure date: "10/5/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 5
+  Establishment: "A Day in June"
+  Address: "2007 Fleet St., 21231"
+  Closure reason: "Operating without a valid license"
+  Closure date: "10/1/2026"
+  Date approved to re-open: "Out of business"
+
+- id: 6
+  Establishment: "Miss Toya's Creole House"
+  Address: "1532 Havenwood Rd., 21218"
+  Closure reason: "Insect infestation, improper food handling, general unsanitary conditons"
+  Closure date: "9/30/2026"
+  Date approved to re-open: "10/1/2026"
+
+- id: 7
+  Establishment: "Chuck's Trading Post"
+  Address: "1506 W. 36th St., 21211"
+  Closure reason: "Rodent infestation, adulterated foods, general unsanitary conditions, repeat violations"
+  Closure date: "9/30/2026"
+  Date approved to re-open: "10/1/2026"
+
+- id: 8
+  Establishment: "Ecco Project Production Kitchen"
+  Address: "3300 Clipper Mill Rd., 21211"
+  Closure reason: "Operating without a valid license"
+  Closure date: "9/30/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 9
+  Establishment: "Nepali & African Grocery Store"
+  Address: "5248 Sinclair Ln., 21206"
+  Closure reason: "Operating without a valid license"
+  Closure date: "9/29/2026"
+  Date approved to re-open: "9/30/2026"
+
+- id: 10
+  Establishment: "Charmed Kitchen"
+  Address: "123 S. Chester St., 21231"
+  Closure reason: "Insect infestation, general unsanitary conditions"
+  Closure date: "9/29/2026"
+  Date approved to re-open: "9/30/2026"
+
+- id: 11
+  Establishment: "Popeyes Chicken & Biscuits"
+  Address: "5002 Sinclair Ln., 21206"
+  Closure reason: "Adulterated foods, leaking ceiling"
+  Closure date: "9/29/2026"
+  Date approved to re-open: "9/30/2026"
+
+- id: 12
+  Establishment: "California Pizza and Wings"
+  Address: "219 S. Broadway, 21231"
+  Closure reason: "Insect infestation, general unsanitary conditions"
+  Closure date: "9/28/2026"
+  Date approved to re-open: "10/1/2026"
+
+- id: 13
+  Establishment: "Belvedere Cafe"
+  Address: "1190 Northern Pwky., 21210"
+  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
+  Closure date: "9/28/2026"
+  Date approved to re-open: "9/30/2026"
+
+- id: 14
+  Establishment: "Harbor Deli & Mart"
+  Address: "501 St. Paul St., 21201"
+  Closure reason: "Fire"
+  Closure date: "9/26/2026"
+  Date approved to re-open: "9/27/2026"
+
+- id: 15
+  Establishment: "Subway"
+  Address: "827 N. Charles St., 21201"
+  Closure reason: "Improper food handling, improper cold holding, general unsanitary conditions"
+  Closure date: "9/24/2026"
+  Date approved to re-open: "None reported yet"
