@@ -1,0 +1,5 @@
+Publish run: 2026-10-08T16:52:06
+Review file: data/staging/closures_review.yaml
+Published to: data/closures.csv
+
+No warnings for this run.
