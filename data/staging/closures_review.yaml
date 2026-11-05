@@ -14,111 +14,90 @@
 #
 # The next scrape overwrites this file, so publish any edits first.
 #
-# Scrape run: 2026-10-08T16:48:15
+# Scrape run: 2026-11-05T14:53:32
 # Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 # Mode: recent (days=14)
 
 - id: 1
-  Establishment: "Latin American Flavor"
-  Address: "3601 Pulaski Hwy., 21224"
-  Closure reason: "Improper food handling, repeat violations"
-  Closure date: "10/7/2026"
+  Establishment: "Gyro King [M-0029]"
+  Address: "937 Bennett Pl., 21223"
+  Closure reason: "Insufficient refrigeration"
+  Closure date: "11/4/2026"
   Date approved to re-open: "None reported yet"
 
 - id: 2
-  Establishment: "Pollo Campstre"
-  Address: "4715 Eastern Ave., 21224"
-  Closure reason: "Insufficient refrigeration"
-  Closure date: "10/6/2026"
-  Date approved to re-open: "None reported yet"
+  Establishment: "Spice Kitchen West African Grill"
+  Address: "2400 Boston St., 21224"
+  Closure reason: "Adulterated foods"
+  Closure date: "11/1/2026"
+  Date approved to re-open: "11/4/2026"
 
 - id: 3
-  Establishment: "On the Hill Cafe & Market"
-  Address: "1431 John St., 21217"
-  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
-  Closure date: "10/6/2026"
-  Date approved to re-open: "None reported yet"
+  Establishment: "Wendy's"
+  Address: "2045 Harford Rd., 21218"
+  Closure reason: "Fire"
+  Closure date: "10/30/2026"
+  Date approved to re-open: "10/31/2026"
 
 - id: 4
-  Establishment: "Crispy Bite Grille"
-  Address: "2407 Frederick Ave., 21223"
-  Closure reason: "Operating without a valid license"
-  Closure date: "10/5/2026"
+  Establishment: "Paradise Grill [M-0153]"
+  Address: "4501 York Rd., 21212"
+  Closure reason: "No hot water throughout facility"
+  Closure date: "10/30/2026"
   Date approved to re-open: "None reported yet"
 
 - id: 5
-  Establishment: "A Day in June"
-  Address: "2007 Fleet St., 21231"
-  Closure reason: "Operating without a valid license"
-  Closure date: "10/1/2026"
-  Date approved to re-open: "Out of business"
+  Establishment: "EC Carryout"
+  Address: "1800 North Ave., 21217"
+  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
+  Closure date: "10/29/2026"
+  Date approved to re-open: "None reported yet"
 
 - id: 6
-  Establishment: "Miss Toya's Creole House"
-  Address: "1532 Havenwood Rd., 21218"
-  Closure reason: "Insect infestation, improper food handling, general unsanitary conditons"
-  Closure date: "9/30/2026"
-  Date approved to re-open: "10/1/2026"
+  Establishment: "GBE Twisted Treats"
+  Address: "301 Light St., 21202"
+  Closure reason: "Operating without a valid license"
+  Closure date: "10/29/2026"
+  Date approved to re-open: "None reported yet"
 
 - id: 7
-  Establishment: "Chuck's Trading Post"
-  Address: "1506 W. 36th St., 21211"
-  Closure reason: "Rodent infestation, adulterated foods, general unsanitary conditions, repeat violations"
-  Closure date: "9/30/2026"
-  Date approved to re-open: "10/1/2026"
+  Establishment: "Kimmy's Restaurant & Carryout Inc."
+  Address: "5732 Wabash Ave., 21215"
+  Closure reason: "Improper food handling, improper handwashing, general unsanitary conditions"
+  Closure date: "10/29/2026"
+  Date approved to re-open: "11/4/2026"
 
 - id: 8
-  Establishment: "Ecco Project Production Kitchen"
-  Address: "3300 Clipper Mill Rd., 21211"
-  Closure reason: "Operating without a valid license"
-  Closure date: "9/30/2026"
-  Date approved to re-open: "None reported yet"
+  Establishment: "Royal Carryout"
+  Address: "4578 Edmondson Ave, 21229"
+  Closure reason: "Operating without a valid license, improper food handling, general unsanitary conditions"
+  Closure date: "10/28/2026"
+  Date approved to re-open: "11/2/2026"
 
 - id: 9
-  Establishment: "Nepali & African Grocery Store"
-  Address: "5248 Sinclair Ln., 21206"
-  Closure reason: "Operating without a valid license"
-  Closure date: "9/29/2026"
-  Date approved to re-open: "9/30/2026"
+  Establishment: "Alameda Carryout"
+  Address: "5668 The Alameda, 21239"
+  Closure reason: "Rodent infestation, general unsanitary conditions"
+  Closure date: "10/28/2026"
+  Date approved to re-open: "11/4/2026"
 
 - id: 10
-  Establishment: "Charmed Kitchen"
-  Address: "123 S. Chester St., 21231"
-  Closure reason: "Insect infestation, general unsanitary conditions"
-  Closure date: "9/29/2026"
-  Date approved to re-open: "9/30/2026"
+  Establishment: "Hip Hop Fish & Chicken Halal"
+  Address: "535 Dundalk Ave., 21224"
+  Closure reason: "Insect infestation, animals in facility, general unsanitary conditions"
+  Closure date: "10/26/2026"
+  Date approved to re-open: "10/27/2026"
 
 - id: 11
-  Establishment: "Popeyes Chicken & Biscuits"
-  Address: "5002 Sinclair Ln., 21206"
-  Closure reason: "Adulterated foods, leaking ceiling"
-  Closure date: "9/29/2026"
-  Date approved to re-open: "9/30/2026"
+  Establishment: "Pizza Master"
+  Address: "1200 Washington Blvd., 21230"
+  Closure reason: "Insect infestation"
+  Closure date: "10/22/2026"
+  Date approved to re-open: "10/26/2026"
 
 - id: 12
-  Establishment: "California Pizza and Wings"
-  Address: "219 S. Broadway, 21231"
-  Closure reason: "Insect infestation, general unsanitary conditions"
-  Closure date: "9/28/2026"
-  Date approved to re-open: "10/1/2026"
-
-- id: 13
-  Establishment: "Belvedere Cafe"
-  Address: "1190 Northern Pwky., 21210"
-  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
-  Closure date: "9/28/2026"
-  Date approved to re-open: "9/30/2026"
-
-- id: 14
-  Establishment: "Harbor Deli & Mart"
-  Address: "501 St. Paul St., 21201"
-  Closure reason: "Fire"
-  Closure date: "9/26/2026"
-  Date approved to re-open: "9/27/2026"
-
-- id: 15
-  Establishment: "Subway"
-  Address: "827 N. Charles St., 21201"
-  Closure reason: "Improper food handling, improper cold holding, general unsanitary conditions"
-  Closure date: "9/24/2026"
-  Date approved to re-open: "None reported yet"
+  Establishment: "M & H Market"
+  Address: "1700 Presstman St., 21217"
+  Closure reason: "Adulterated foods, repeat violations, animal in facility"
+  Closure date: "10/22/2026"
+  Date approved to re-open: "10/23/2026"
