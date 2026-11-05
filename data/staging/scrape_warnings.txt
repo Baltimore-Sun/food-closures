@@ -1,6 +1,6 @@
-Scrape run: 2026-11-05T14:53:32
+Scrape run: 2026-11-05T18:38:41
 Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 Mode: recent (days=14)
 
 1 warning(s):
-2026-11-05 14:53:33 WARNING Date of Closure '8/18/206' did not parse; inferred 2026-08-18 from surrounding rows (prev=2026-08-17, next=2026-08-18), which share the same month and year.
+2026-11-05 18:38:42 WARNING Date of Closure '8/18/206' did not parse; inferred 2026-08-18 from surrounding rows (prev=2026-08-17, next=2026-08-18), which share the same month and year.
