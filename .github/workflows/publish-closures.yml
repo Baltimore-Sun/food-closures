@@ -37,7 +37,7 @@ jobs:
 
       - name: Commit live data if changed
         run: |
-          git add data/closures.csv data/staging/publish_warnings.txt
+          git add data/closures.csv data/staging/publish_warnings.txt data/staging/last_publish.json
           if git diff --cached --quiet; then
             echo "Live data already matches the review file; nothing to commit."
             exit 0

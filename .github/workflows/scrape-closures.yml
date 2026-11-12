@@ -4,8 +4,9 @@ name: Scrape closures (to staging)
 #   data/staging/closures_review.yaml  <- review and edit this
 #   data/staging/geocode_cache.json
 #   data/staging/scrape_warnings.txt
+#   data/staging/last_scrape.json      (baseline for the next comparison)
 # Does NOT change the live map or Datawrapper table. Run "Publish closures"
-# for that. Note: this overwrites the review file, so publish any pending
+# for that. The run page summarizes what changed since the previous scrape. Note: this overwrites the review file, so publish any pending
 # edits before scraping again.
 on:
   workflow_dispatch:
@@ -47,16 +48,23 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run scraper
+        id: scrape
         env:
           ARCGIS_API_KEY: ${{ secrets.ARCGIS_API_KEY }}
+          MODE: ${{ inputs.mode }}
+          DAYS: ${{ inputs.days }}
         run: |
           python scrape_closures.py \
-            --mode "${{ inputs.mode }}" \
-            --days "${{ inputs.days }}" \
+            --mode "$MODE" \
+            --days "$DAYS" \
             --staging-dir data/staging \
             --verbose
 
       - name: Commit staging files if changed
+        env:
+          HEADLINE: ${{ steps.scrape.outputs.headline }}
+          MODE: ${{ inputs.mode }}
+          DAYS: ${{ inputs.days }}
         run: |
           git add data/staging
           if git diff --cached --quiet; then
@@ -65,7 +73,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Scrape to staging (mode=${{ inputs.mode }}, days=${{ inputs.days }})"
+          git commit -m "Scrape to staging: ${HEADLINE:-done} (mode=$MODE, days=$DAYS)"
           # Pick up any commit made while this ran (e.g. a review edit).
           git pull --rebase
           git push
