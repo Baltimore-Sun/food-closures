@@ -1,4 +1,4 @@
-Publish run: 2026-11-05T18:46:46
+Publish run: 2026-11-12T15:35:22
 Review file: data/staging/closures_review.yaml
 Published to: data/closures.csv
 
