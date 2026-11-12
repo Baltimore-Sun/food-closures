@@ -53,11 +53,14 @@ import os
 import re
 import sys
 import time
+import hashlib
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
+import yaml
 from bs4 import BeautifulSoup
 
 SOURCE_URL = (
@@ -109,6 +112,31 @@ NEIGHBORHOOD_LAYER_QUERY_URL = (
 GEOCODE_REQUEST_DELAY_SECONDS = 0.2
 
 log = logging.getLogger("scrape_closures")
+
+# Baltimore's local time. "America/New_York" switches between EDT (UTC-4)
+# and EST (UTC-5) automatically. GitHub's runners use UTC, so without
+# this, a run after about 8 p.m. Eastern would treat tomorrow as "today".
+EASTERN = ZoneInfo("America/New_York")
+
+
+def now_eastern() -> datetime:
+    """Current time in Baltimore, with its EDT/EST offset attached."""
+    return datetime.now(EASTERN)
+
+
+def today_eastern() -> date:
+    """Today's date in Baltimore, regardless of the machine's time zone."""
+    return now_eastern().date()
+
+
+def eastern_log_formatter() -> logging.Formatter:
+    """Log lines stamped in Baltimore time (not the runner's UTC clock), so
+    they match the run timestamps in the staging files."""
+    formatter = logging.Formatter(
+        "%(asctime)s %(levelname)-7s %(message)s", datefmt="%Y-%m-%d %H:%M:%S ET"
+    )
+    formatter.converter = lambda secs: datetime.fromtimestamp(secs, EASTERN).timetuple()
+    return formatter
 
 
 class ScraperError(RuntimeError):
@@ -176,11 +204,7 @@ class _WarningCollector(logging.Handler):
 
     def __init__(self, level: int = logging.WARNING) -> None:
         super().__init__(level=level)
-        self.setFormatter(
-            logging.Formatter(
-                "%(asctime)s %(levelname)-7s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-            )
-        )
+        self.setFormatter(eastern_log_formatter())
         self.records: list[str] = []
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -442,13 +466,15 @@ def filter_recent(
 ) -> list[ClosureRow]:
     """
     Keep rows where Date of Closure is within the last `days` days,
-    inclusive, relative to reference_date (defaults to today).
+    inclusive, relative to reference_date (defaults to today's date in
+    Baltimore -- see today_eastern). With days=14, that's today plus the
+    14 days before it.
 
     Rows with an unparseable date are excluded and logged, since we can't
     verify their recency. The full table (--mode full) is unaffected by
     this function.
     """
-    ref = reference_date or date.today()
+    ref = reference_date or today_eastern()
     cutoff = ref - timedelta(days=days)
 
     kept = []
@@ -891,11 +917,261 @@ def write_geocode_cache(headers: list[str], rows: list[ClosureRow], path: str) -
         os.makedirs(parent_dir, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         json.dump(
-            {"generated": datetime.now().isoformat(timespec="seconds"), "rows": entries},
+            {"generated": now_eastern().isoformat(timespec="seconds"), "rows": entries},
             f, indent=2, ensure_ascii=False,
         )
         f.write("\n")
     log.info("Wrote geocode cache for %d row(s) to %s", len(entries), path)
+
+
+# ---------------------------------------------------------------------
+# Change report: what's different from the previous scrape
+# ---------------------------------------------------------------------
+# Compares this scrape to the previous scrape's untouched output (saved in
+# last_scrape.json), not to the review file, so a producer's unpublished
+# edits never show up as "changes from the city". Also detects when this
+# scrape overwrites review-file edits that were never published, using a
+# fingerprint the publish step leaves in last_publish.json.
+
+LAST_SCRAPE_FILENAME = "last_scrape.json"
+LAST_PUBLISH_FILENAME = "last_publish.json"
+CHANGE_KEY_FIELDS = ("Establishment", "Address", "Closure date")
+
+
+def _normalize_record(record: dict) -> dict:
+    """Editable fields only, as stripped strings. Shared by scrape and publish
+    so fingerprints of the same data always match."""
+    return {
+        str(k): ("" if v is None else str(v).strip())
+        for k, v in record.items()
+        if str(k) != "id" and str(k) not in COMPUTED_COLUMNS
+    }
+
+
+def review_fingerprint(records: list[dict]) -> str:
+    """Order-insensitive hash of review-file records (ids and computed
+    columns ignored). Reordering blocks doesn't count as an edit, since
+    publishing re-sorts anyway."""
+    canonical = sorted(json.dumps(_normalize_record(r), sort_keys=True, ensure_ascii=False) for r in records)
+    return hashlib.sha256(json.dumps(canonical).encode("utf-8")).hexdigest()
+
+
+def _read_json(path: str) -> Optional[dict]:
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def check_for_unpublished_edits(staging_dir: str, last_scrape: Optional[dict]) -> Optional[str]:
+    """
+    Inspect the review file that's about to be overwritten. Returns None if
+    it's safe to overwrite (untouched since the last scrape, or its edits
+    were published), otherwise a short reason. Call before writing anything.
+    """
+    review_path = os.path.join(staging_dir, REVIEW_FILENAME)
+    if not os.path.exists(review_path) or not last_scrape:
+        return None  # nothing to lose, or no baseline to compare with
+
+    try:
+        with open(review_path, encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except (OSError, yaml.YAMLError):
+        return "the review file had edits that left it invalid, and they were never published"
+    if data is None:
+        data = []
+    if not isinstance(data, list) or not all(isinstance(r, dict) for r in data):
+        return "the review file had edits that left it invalid, and they were never published"
+
+    current = review_fingerprint(data)
+    if current == last_scrape.get("fingerprint"):
+        return None  # untouched since the last scrape
+    last_publish = _read_json(os.path.join(staging_dir, LAST_PUBLISH_FILENAME)) or {}
+    if current == last_publish.get("fingerprint"):
+        return None  # edited, then published
+    return "the review file had edits that were never published"
+
+
+def review_row_dicts(headers: list[str], rows: list[ClosureRow]) -> list[dict]:
+    fields = review_fields(headers)
+    return [{f: (row.values.get(f) or "").strip() for f in fields} for row in rows]
+
+
+def _change_key(record: dict) -> tuple:
+    if all(f in record for f in CHANGE_KEY_FIELDS):
+        return tuple(" ".join(record[f].split()).casefold() for f in CHANGE_KEY_FIELDS)
+    return tuple(sorted(_normalize_record(record).items()))
+
+
+def diff_scrapes(
+    previous: list[dict], current: list[dict], window_cutoff: Optional[date]
+) -> dict:
+    """
+    Match rows between scrapes by establishment + address + closure date
+    (ids are renumbered every scrape, so they can't be used). Returns
+    {"new": [...], "updated": [(record, [(field, old, new), ...]), ...],
+     "aged_out": [...], "removed": [...]}. A removed row whose closure
+    date falls before this scrape's window is "aged out"; any other is
+    "removed" (the city deleted or corrected it).
+    """
+    prev_by_key: dict[tuple, list[dict]] = {}
+    for r in previous:
+        prev_by_key.setdefault(_change_key(r), []).append(r)
+
+    result = {"new": [], "updated": [], "aged_out": [], "removed": []}
+    for r in current:
+        matches = prev_by_key.get(_change_key(r))
+        if not matches:
+            result["new"].append(r)
+            continue
+        old = matches.pop(0)
+        changed = [
+            (f, old.get(f, ""), r.get(f, ""))
+            for f in list(dict.fromkeys(list(old) + list(r)))
+            if old.get(f, "") != r.get(f, "")
+        ]
+        if changed:
+            result["updated"].append((r, changed))
+
+    for leftovers in prev_by_key.values():
+        for r in leftovers:
+            closed = parse_date_cell(r.get("Closure date", ""))
+            if window_cutoff and closed and closed < window_cutoff:
+                result["aged_out"].append(r)
+            else:
+                result["removed"].append(r)
+    return result
+
+
+def change_headline(diff: Optional[dict]) -> str:
+    """Counts only (no names), safe for commit messages."""
+    if diff is None:
+        return "no previous scrape to compare"
+    parts = [
+        f"{len(diff[k])} {label}"
+        for k, label in (("new", "new"), ("updated", "updated"), ("aged_out", "aged out"), ("removed", "removed"))
+        if diff[k]
+    ]
+    return ", ".join(parts) if parts else "no data changes"
+
+
+def _friendly_time(iso: Optional[str]) -> str:
+    try:
+        dt = datetime.fromisoformat(iso).astimezone(EASTERN)
+    except (TypeError, ValueError):
+        return "unknown time"
+    return dt.strftime("%b %-d, %Y, %-I:%M %p %Z")
+
+
+def _label(record: dict) -> str:
+    name = record.get("Establishment") or "(no name)"
+    date_text = record.get("Closure date")
+    return f"{name} ({date_text})" if date_text else name
+
+
+def change_comment_lines(diff: Optional[dict], last_scrape: Optional[dict],
+                         mode_note: Optional[str], overwritten: Optional[str]) -> list[str]:
+    """Lines for the review file's header comment."""
+    lines = []
+    if overwritten:
+        lines += [f"WARNING: {overwritten}. This scrape replaced them.", ""]
+    if diff is None:
+        lines.append("Changes since previous scrape: none to report (no previous scrape on record).")
+        return lines
+    when = _friendly_time(last_scrape.get("scraped_at"))
+    if change_headline(diff) == "no data changes":
+        lines.append(f"Data unchanged since previous scrape ({when}).")
+    else:
+        lines.append(f"Changes since previous scrape ({when}): {change_headline(diff)}.")
+        for r in diff["new"]:
+            lines.append(f"  New: {_label(r)}")
+        for r, changed in diff["updated"]:
+            fields = ", ".join(f for f, _, _ in changed)
+            lines.append(f"  Updated: {_label(r)} -- {fields}")
+        for r in diff["aged_out"]:
+            lines.append(f"  Aged out: {_label(r)}")
+        for r in diff["removed"]:
+            lines.append(f"  Removed by the city: {_label(r)}")
+    if mode_note:
+        lines.append(f"Note: {mode_note}")
+    return lines
+
+
+def _md_cell(text: str) -> str:
+    return (text or "").replace("|", "\\|").replace("\n", " ")
+
+
+def change_summary_markdown(diff: Optional[dict], last_scrape: Optional[dict], mode_note: Optional[str],
+                            overwritten: Optional[str], warning_count: int, staging_dir: str) -> str:
+    """The Actions run-page summary."""
+    review = f"{staging_dir}/{REVIEW_FILENAME}"
+    out = ["## Scrape result", ""]
+    if overwritten:
+        out += [f"> **⚠️ Unpublished edits were overwritten.** Before this scrape, {overwritten}. "
+                f"They were replaced; redo them in `{review}` if they're still needed.", ""]
+    if diff is None:
+        out.append(f"**No previous scrape on record to compare with.** Review `{review}` in full.")
+    elif change_headline(diff) == "no data changes":
+        out.append(f"**No data changes since the last scrape** ({_friendly_time(last_scrape.get('scraped_at'))}). "
+                   f"Nothing new to review.")
+    else:
+        total = sum(len(diff[k]) for k in diff)
+        out += [f"**{total} change{'s' if total != 1 else ''} since the last scrape** "
+                f"({_friendly_time(last_scrape.get('scraped_at'))}): {change_headline(diff)}. "
+                f"Review them in `{review}`.", "",
+                "| Change | Establishment | Closure date | Details |", "| --- | --- | --- | --- |"]
+        for r in diff["new"]:
+            out.append(f"| New | {_md_cell(r.get('Establishment'))} | {_md_cell(r.get('Closure date'))} | |")
+        for r, changed in diff["updated"]:
+            details = "; ".join(f"{f}: {old or '(blank)'} → {new or '(blank)'}" for f, old, new in changed)
+            out.append(f"| Updated | {_md_cell(r.get('Establishment'))} | {_md_cell(r.get('Closure date'))} | {_md_cell(details)} |")
+        for r in diff["aged_out"]:
+            out.append(f"| Aged out | {_md_cell(r.get('Establishment'))} | {_md_cell(r.get('Closure date'))} | Older than the window |")
+        for r in diff["removed"]:
+            out.append(f"| Removed | {_md_cell(r.get('Establishment'))} | {_md_cell(r.get('Closure date'))} | No longer in the city's table (deleted or corrected) |")
+    if mode_note:
+        out += ["", f"_Note: {mode_note}_"]
+    if warning_count:
+        out += ["", f"{warning_count} data warning{'s' if warning_count != 1 else ''}: "
+                    f"see `{staging_dir}/{SCRAPE_WARNINGS_FILENAME}`."]
+    return "\n".join(out) + "\n"
+
+
+def _annotation(text: str) -> str:
+    return text.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+
+
+def report_to_github_actions(headline: str, summary_md: str, overwritten: Optional[str]) -> None:
+    """When running in GitHub Actions: write the run-page summary, show a
+    notice (and a warning if edits were overwritten) at the top of the run,
+    and expose the headline to later steps for the commit message. Does
+    nothing when run locally."""
+    if not os.environ.get("GITHUB_ACTIONS"):
+        return
+    summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if summary_path:
+        with open(summary_path, "a", encoding="utf-8") as f:
+            f.write(summary_md)
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if output_path:
+        with open(output_path, "a", encoding="utf-8") as f:
+            f.write(f"headline={headline}\n")
+    print(f"::notice title=Scrape result::{_annotation(headline[:1].upper() + headline[1:])}")
+    if overwritten:
+        print(f"::warning title=Unpublished edits overwritten::{_annotation(overwritten[:1].upper() + overwritten[1:])}.")
+
+
+def write_last_scrape(staging_dir: str, rows: list[dict], mode: str, days: int, scraped_at: str) -> None:
+    path = os.path.join(staging_dir, LAST_SCRAPE_FILENAME)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(
+            {"scraped_at": scraped_at, "mode": mode, "days": days,
+             "fingerprint": review_fingerprint(rows), "rows": rows},
+            f, indent=2, ensure_ascii=False,
+        )
+        f.write("\n")
 
 
 def run(
@@ -925,8 +1201,9 @@ def run(
             "or pass --no-geocode to skip geocoding and neighborhood lookup."
         )
 
+    scraped_at = now_eastern().isoformat(timespec="seconds")
     context_lines = [
-        f"Scrape run: {datetime.now().isoformat(timespec='seconds')}",
+        f"Scrape run: {scraped_at}",
         f"Source: {url}",
         f"Mode: {mode}" + (f" (days={days})" if mode == "recent" else ""),
     ]
@@ -940,10 +1217,19 @@ def run(
         table = find_target_table(soup)
         headers, rows = parse_table(table)
 
+        # Read the previous state before anything gets overwritten.
+        last_scrape = _read_json(os.path.join(staging_dir, LAST_SCRAPE_FILENAME))
+        overwritten = check_for_unpublished_edits(staging_dir, last_scrape)
+        if overwritten:
+            log.warning("Unpublished edits overwritten: %s. This scrape replaced them.", overwritten)
+
+        ref = reference_date or today_eastern()
         if mode == "full":
             selected = rows
+            window_cutoff = None
         else:
-            selected = filter_recent(rows, days=days, reference_date=reference_date)
+            selected = filter_recent(rows, days=days, reference_date=ref)
+            window_cutoff = ref - timedelta(days=days)
 
         selected = sort_by_closure_date_desc(selected)
 
@@ -955,13 +1241,31 @@ def run(
         fill_blank_reopen_dates(headers, selected)
         headers = apply_column_renames(headers, selected)
 
+        current_rows = review_row_dicts(headers, selected)
+        diff = diff_scrapes(last_scrape.get("rows", []), current_rows, window_cutoff) if last_scrape else None
+        mode_note = None
+        if (last_scrape and diff and change_headline(diff) != "no data changes"
+                and (last_scrape.get("mode"), last_scrape.get("days")) != (mode, days)):
+            prev_desc = last_scrape.get("mode") + (
+                f", days={last_scrape.get('days')}" if last_scrape.get("mode") == "recent" else "")
+            mode_note = f"the previous scrape used mode={prev_desc}, so some differences come from that."
+        headline = change_headline(diff)
+        log.info("Compared with previous scrape: %s.", headline)
+
         review_path = os.path.join(staging_dir, REVIEW_FILENAME)
-        write_review_yaml(headers, selected, review_path, context_lines)
+        header_lines = change_comment_lines(diff, last_scrape, mode_note, overwritten) + [""] + context_lines
+        write_review_yaml(headers, selected, review_path, header_lines)
         write_geocode_cache(headers, selected, os.path.join(staging_dir, GEOCODE_CACHE_FILENAME))
+        write_last_scrape(staging_dir, current_rows, mode, days, scraped_at)
     finally:
         log.removeHandler(collector)
 
     write_warnings_file(collector.records, warnings_output_path, context_lines)
+    report_to_github_actions(
+        headline,
+        change_summary_markdown(diff, last_scrape, mode_note, overwritten, len(collector.records), staging_dir),
+        overwritten,
+    )
     return review_path
 
 
@@ -1021,11 +1325,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def configure_logging(verbose: bool, api_key: Optional[str]) -> None:
-    logging.basicConfig(
-        level=logging.DEBUG if verbose else logging.INFO,
-        format="%(asctime)s %(levelname)-7s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    logging.basicConfig(level=logging.DEBUG if verbose else logging.INFO)
+    for handler in logging.getLogger().handlers:
+        handler.setFormatter(eastern_log_formatter())
     # Defense-in-depth: never let the API key value itself reach a log
     # line. Filters must be attached to the *handler*, not a Logger, to
     # be consulted for records propagating up from child loggers.

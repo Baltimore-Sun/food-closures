@@ -39,7 +39,6 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
 from typing import Optional
 
 import yaml
@@ -317,6 +316,17 @@ def publish(
         sc.fill_blank_reopen_dates(headers, rows)
         sc.write_csv(headers, rows, output_path)
         log.info("Published %d row(s); geocoded %d changed or new address(es).", len(rows), geocoded)
+
+        # Lets the next scrape tell "edited and published" apart from
+        # "edited but never published" before it overwrites the review file.
+        last_publish_path = os.path.join(os.path.dirname(review_path), sc.LAST_PUBLISH_FILENAME)
+        with open(last_publish_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {"published_at": sc.now_eastern().isoformat(timespec="seconds"),
+                 "fingerprint": sc.review_fingerprint(records)},
+                f, indent=2,
+            )
+            f.write("\n")
     finally:
         log.removeHandler(collector)
 
@@ -324,7 +334,7 @@ def publish(
         collector.records,
         warnings_output_path,
         [
-            f"Publish run: {datetime.now().isoformat(timespec='seconds')}",
+            f"Publish run: {sc.now_eastern().isoformat(timespec='seconds')}",
             f"Review file: {review_path}",
             f"Published to: {output_path}",
         ],
