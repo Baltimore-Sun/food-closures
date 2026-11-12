@@ -14,90 +14,76 @@
 #
 # The next scrape overwrites this file, so publish any edits first.
 #
-# Scrape run: 2026-11-05T18:38:41
+# Scrape run: 2026-11-12T15:32:31
 # Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 # Mode: recent (days=14)
 
 - id: 1
+  Establishment: "AAA Carryout"
+  Address: "451 E. 22nd St., 21218"
+  Closure reason: "Rodent infestation, general unsanitary conditions"
+  Closure date: "11/9/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 2
+  Establishment: "Big Brothers Mini"
+  Address: "2401 Jefferson St., 21205"
+  Closure reason: "Insect infestation, general unsanitary conditions"
+  Closure date: "11/9/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 3
+  Establishment: "China Garden"
+  Address: "3421 Clifton Ave., 21217"
+  Closure reason: "Rodent infestation, repeat violations"
+  Closure date: "11/5/2026"
+  Date approved to re-open: "11/6/2026"
+
+- id: 4
   Establishment: "Gyro King [M-0029]"
   Address: "937 Bennett Pl., 21223"
   Closure reason: "Insufficient refrigeration"
   Closure date: "11/4/2026"
-  Date approved to re-open: "None reported yet"
+  Date approved to re-open: "11/6/2026"
 
-- id: 2
+- id: 5
   Establishment: "Spice Kitchen West African Grill"
   Address: "2400 Boston St., 21224"
   Closure reason: "Adulterated foods"
   Closure date: "11/1/2026"
   Date approved to re-open: "11/4/2026"
 
-- id: 3
+- id: 6
   Establishment: "Wendy's"
   Address: "2045 Harford Rd., 21218"
   Closure reason: "Fire"
   Closure date: "10/30/2026"
   Date approved to re-open: "10/31/2026"
 
-- id: 4
+- id: 7
   Establishment: "Paradise Grill [M-0153]"
   Address: "4501 York Rd., 21212"
   Closure reason: "No hot water throughout facility"
   Closure date: "10/30/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 5
+- id: 8
   Establishment: "EC Carryout"
   Address: "1800 North Ave., 21217"
   Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
   Closure date: "10/29/2026"
-  Date approved to re-open: "None reported yet"
+  Date approved to re-open: "11/5/2026"
 
-- id: 6
+- id: 9
   Establishment: "GBE Twisted Treats"
   Address: "301 Light St., 21202"
   Closure reason: "Operating without a valid license"
   Closure date: "10/29/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 7
+- id: 10
   Establishment: "Kimmy's Restaurant & Carryout Inc."
   Address: "5732 Wabash Ave., 21215"
   Closure reason: "Improper food handling, improper handwashing, general unsanitary conditions"
   Closure date: "10/29/2026"
   Date approved to re-open: "11/4/2026"
-
-- id: 8
-  Establishment: "Royal Carryout"
-  Address: "4578 Edmondson Ave, 21229"
-  Closure reason: "Operating without a valid license, improper food handling, general unsanitary conditions"
-  Closure date: "10/28/2026"
-  Date approved to re-open: "11/2/2026"
-
-- id: 9
-  Establishment: "Alameda Carryout"
-  Address: "5668 The Alameda, 21239"
-  Closure reason: "Rodent infestation, general unsanitary conditions"
-  Closure date: "10/28/2026"
-  Date approved to re-open: "11/4/2026"
-
-- id: 10
-  Establishment: "Hip Hop Fish & Chicken Halal"
-  Address: "535 Dundalk Ave., 21224"
-  Closure reason: "Insect infestation, animals in facility, general unsanitary conditions"
-  Closure date: "10/26/2026"
-  Date approved to re-open: "10/27/2026"
-
-- id: 11
-  Establishment: "Pizza Master"
-  Address: "1200 Washington Blvd., 21230"
-  Closure reason: "Insect infestation"
-  Closure date: "10/22/2026"
-  Date approved to re-open: "10/26/2026"
-
-- id: 12
-  Establishment: "M & H Market"
-  Address: "1700 Presstman St., 21217"
-  Closure reason: "Adulterated foods, repeat violations, animal in facility"
-  Closure date: "10/22/2026"
-  Date approved to re-open: "10/23/2026"
