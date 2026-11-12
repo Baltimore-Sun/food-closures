@@ -1,0 +1,78 @@
+{
+  "scraped_at": "2026-11-12T15:14:10-05:00",
+  "mode": "recent",
+  "days": 14,
+  "fingerprint": "f034d7169e417e4e95253247d8afe698914a704ef77b16304e4efe26e4c6e2d0",
+  "rows": [
+    {
+      "Establishment": "AAA Carryout",
+      "Address": "451 E. 22nd St., 21218",
+      "Closure reason": "Rodent infestation, general unsanitary conditions",
+      "Closure date": "11/9/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "Big Brothers Mini",
+      "Address": "2401 Jefferson St., 21205",
+      "Closure reason": "Insect infestation, general unsanitary conditions",
+      "Closure date": "11/9/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "China Garden",
+      "Address": "3421 Clifton Ave., 21217",
+      "Closure reason": "Rodent infestation, repeat violations",
+      "Closure date": "11/5/2026",
+      "Date approved to re-open": "11/6/2026"
+    },
+    {
+      "Establishment": "Gyro King [M-0029]",
+      "Address": "937 Bennett Pl., 21223",
+      "Closure reason": "Insufficient refrigeration",
+      "Closure date": "11/4/2026",
+      "Date approved to re-open": "11/6/2026"
+    },
+    {
+      "Establishment": "Spice Kitchen West African Grill",
+      "Address": "2400 Boston St., 21224",
+      "Closure reason": "Adulterated foods",
+      "Closure date": "11/1/2026",
+      "Date approved to re-open": "11/4/2026"
+    },
+    {
+      "Establishment": "Wendy's",
+      "Address": "2045 Harford Rd., 21218",
+      "Closure reason": "Fire",
+      "Closure date": "10/30/2026",
+      "Date approved to re-open": "10/31/2026"
+    },
+    {
+      "Establishment": "Paradise Grill [M-0153]",
+      "Address": "4501 York Rd., 21212",
+      "Closure reason": "No hot water throughout facility",
+      "Closure date": "10/30/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "EC Carryout",
+      "Address": "1800 North Ave., 21217",
+      "Closure reason": "Rodent infestation, general unsanitary conditions, repeat violations",
+      "Closure date": "10/29/2026",
+      "Date approved to re-open": "11/5/2026"
+    },
+    {
+      "Establishment": "GBE Twisted Treats",
+      "Address": "301 Light St., 21202",
+      "Closure reason": "Operating without a valid license",
+      "Closure date": "10/29/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "Kimmy's Restaurant & Carryout Inc.",
+      "Address": "5732 Wabash Ave., 21215",
+      "Closure reason": "Improper food handling, improper handwashing, general unsanitary conditions",
+      "Closure date": "10/29/2026",
+      "Date approved to re-open": "11/4/2026"
+    }
+  ]
+}
