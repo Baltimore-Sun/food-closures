@@ -14,9 +14,12 @@
 #
 # The next scrape overwrites this file, so publish any edits first.
 #
-# Data unchanged since previous scrape (Nov 12, 2026, 3:14 PM EST).
+# Changes since previous scrape (Nov 12, 2026, 3:15 PM EST): 3 aged out.
+#   Aged out: EC Carryout (10/29/2026)
+#   Aged out: GBE Twisted Treats (10/29/2026)
+#   Aged out: Kimmy's Restaurant & Carryout Inc. (10/29/2026)
 #
-# Scrape run: 2026-11-12T15:15:29-05:00
+# Scrape run: 2026-11-13T11:19:17-05:00
 # Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 # Mode: recent (days=14)
 
@@ -68,24 +71,3 @@
   Closure reason: "No hot water throughout facility"
   Closure date: "10/30/2026"
   Date approved to re-open: "None reported yet"
-
-- id: 8
-  Establishment: "EC Carryout"
-  Address: "1800 North Ave., 21217"
-  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
-  Closure date: "10/29/2026"
-  Date approved to re-open: "11/5/2026"
-
-- id: 9
-  Establishment: "GBE Twisted Treats"
-  Address: "301 Light St., 21202"
-  Closure reason: "Operating without a valid license"
-  Closure date: "10/29/2026"
-  Date approved to re-open: "None reported yet"
-
-- id: 10
-  Establishment: "Kimmy's Restaurant & Carryout Inc."
-  Address: "5732 Wabash Ave., 21215"
-  Closure reason: "Improper food handling, improper handwashing, general unsanitary conditions"
-  Closure date: "10/29/2026"
-  Date approved to re-open: "11/4/2026"

@@ -1,8 +1,8 @@
 {
-  "scraped_at": "2026-11-12T15:15:29-05:00",
+  "scraped_at": "2026-11-13T11:19:17-05:00",
   "mode": "recent",
   "days": 14,
-  "fingerprint": "f034d7169e417e4e95253247d8afe698914a704ef77b16304e4efe26e4c6e2d0",
+  "fingerprint": "8cb5218b2653311ecc35decfa968555af1ec4bced0b7b73e544ff5d1f6165d3b",
   "rows": [
     {
       "Establishment": "AAA Carryout",
@@ -52,27 +52,6 @@
       "Closure reason": "No hot water throughout facility",
       "Closure date": "10/30/2026",
       "Date approved to re-open": "None reported yet"
-    },
-    {
-      "Establishment": "EC Carryout",
-      "Address": "1800 North Ave., 21217",
-      "Closure reason": "Rodent infestation, general unsanitary conditions, repeat violations",
-      "Closure date": "10/29/2026",
-      "Date approved to re-open": "11/5/2026"
-    },
-    {
-      "Establishment": "GBE Twisted Treats",
-      "Address": "301 Light St., 21202",
-      "Closure reason": "Operating without a valid license",
-      "Closure date": "10/29/2026",
-      "Date approved to re-open": "None reported yet"
-    },
-    {
-      "Establishment": "Kimmy's Restaurant & Carryout Inc.",
-      "Address": "5732 Wabash Ave., 21215",
-      "Closure reason": "Improper food handling, improper handwashing, general unsanitary conditions",
-      "Closure date": "10/29/2026",
-      "Date approved to re-open": "11/4/2026"
     }
   ]
 }

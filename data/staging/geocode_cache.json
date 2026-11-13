@@ -1,5 +1,5 @@
 {
-  "generated": "2026-11-12T15:15:33-05:00",
+  "generated": "2026-11-13T11:19:22-05:00",
   "rows": {
     "1": {
       "Address": "451 E. 22nd St., 21218",
@@ -48,27 +48,6 @@
       "Neighborhood": "Wilson Park",
       "Latitude": "39.343642",
       "Longitude": "-76.609212",
-      "Geocode Confidence": "100.0"
-    },
-    "8": {
-      "Address": "1800 North Ave., 21217",
-      "Neighborhood": "Mondawmin",
-      "Latitude": "39.310130",
-      "Longitude": "-76.646640",
-      "Geocode Confidence": "99.64"
-    },
-    "9": {
-      "Address": "301 Light St., 21202",
-      "Neighborhood": "Inner Harbor",
-      "Latitude": "39.284720",
-      "Longitude": "-76.612807",
-      "Geocode Confidence": "100.0"
-    },
-    "10": {
-      "Address": "5732 Wabash Ave., 21215",
-      "Neighborhood": "Seton Business Park",
-      "Latitude": "39.346802",
-      "Longitude": "-76.701373",
       "Geocode Confidence": "100.0"
     }
   }
