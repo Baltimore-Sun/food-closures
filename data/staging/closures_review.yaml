@@ -14,60 +14,63 @@
 #
 # The next scrape overwrites this file, so publish any edits first.
 #
-# Changes since previous scrape (Nov 12, 2026, 3:15 PM EST): 3 aged out.
-#   Aged out: EC Carryout (10/29/2026)
-#   Aged out: GBE Twisted Treats (10/29/2026)
-#   Aged out: Kimmy's Restaurant & Carryout Inc. (10/29/2026)
+# Changes since previous scrape (Nov 13, 2026, 11:19 AM EST): 3 new, 3 aged out.
+#   New: Clipper Mill Inn (11/16/2026)
+#   New: G & G Supermarket Inc. (11/16/2026)
+#   New: Piazza 27 (11/10/2026)
+#   Aged out: Spice Kitchen West African Grill (11/1/2026)
+#   Aged out: Wendy's (10/30/2026)
+#   Aged out: Paradise Grill [M-0153] (10/30/2026)
 #
-# Scrape run: 2026-11-13T11:19:17-05:00
+# Scrape run: 2026-11-17T10:59:57-05:00
 # Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 # Mode: recent (days=14)
 
 - id: 1
+  Establishment: "Clipper Mill Inn"
+  Address: "1619 Union Ave., 21211"
+  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
+  Closure date: "11/16/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 2
+  Establishment: "G & G Supermarket Inc."
+  Address: "2344 Annapolis Rd., 21230"
+  Closure reason: "No hot water throughout facility"
+  Closure date: "11/16/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 3
+  Establishment: "Piazza 27"
+  Address: "900 Cathedral St., 21201"
+  Closure reason: "Operating without a valid license"
+  Closure date: "11/10/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 4
   Establishment: "AAA Carryout"
   Address: "451 E. 22nd St., 21218"
   Closure reason: "Rodent infestation, general unsanitary conditions"
   Closure date: "11/9/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 2
+- id: 5
   Establishment: "Big Brothers Mini"
   Address: "2401 Jefferson St., 21205"
   Closure reason: "Insect infestation, general unsanitary conditions"
   Closure date: "11/9/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 3
+- id: 6
   Establishment: "China Garden"
   Address: "3421 Clifton Ave., 21217"
   Closure reason: "Rodent infestation, repeat violations"
   Closure date: "11/5/2026"
   Date approved to re-open: "11/6/2026"
 
-- id: 4
+- id: 7
   Establishment: "Gyro King [M-0029]"
   Address: "937 Bennett Pl., 21223"
   Closure reason: "Insufficient refrigeration"
   Closure date: "11/4/2026"
   Date approved to re-open: "11/6/2026"
-
-- id: 5
-  Establishment: "Spice Kitchen West African Grill"
-  Address: "2400 Boston St., 21224"
-  Closure reason: "Adulterated foods"
-  Closure date: "11/1/2026"
-  Date approved to re-open: "11/4/2026"
-
-- id: 6
-  Establishment: "Wendy's"
-  Address: "2045 Harford Rd., 21218"
-  Closure reason: "Fire"
-  Closure date: "10/30/2026"
-  Date approved to re-open: "10/31/2026"
-
-- id: 7
-  Establishment: "Paradise Grill [M-0153]"
-  Address: "4501 York Rd., 21212"
-  Closure reason: "No hot water throughout facility"
-  Closure date: "10/30/2026"
-  Date approved to re-open: "None reported yet"

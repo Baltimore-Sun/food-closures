@@ -1,53 +1,53 @@
 {
-  "generated": "2026-11-13T11:19:22-05:00",
+  "generated": "2026-11-17T11:00:04-05:00",
   "rows": {
     "1": {
+      "Address": "1619 Union Ave., 21211",
+      "Neighborhood": "Hampden",
+      "Latitude": "39.331817",
+      "Longitude": "-76.641354",
+      "Geocode Confidence": "100.0"
+    },
+    "2": {
+      "Address": "2344 Annapolis Rd., 21230",
+      "Neighborhood": "Westport",
+      "Latitude": "39.261863",
+      "Longitude": "-76.634979",
+      "Geocode Confidence": "100.0"
+    },
+    "3": {
+      "Address": "900 Cathedral St., 21201",
+      "Neighborhood": "Mid-Town Belvedere",
+      "Latitude": "39.299789",
+      "Longitude": "-76.617426",
+      "Geocode Confidence": "100.0"
+    },
+    "4": {
       "Address": "451 E. 22nd St., 21218",
       "Neighborhood": "Barclay",
       "Latitude": "39.314322",
       "Longitude": "-76.609649",
       "Geocode Confidence": "100.0"
     },
-    "2": {
+    "5": {
       "Address": "2401 Jefferson St., 21205",
       "Neighborhood": "McElderry Park",
       "Latitude": "39.296503",
       "Longitude": "-76.583424",
       "Geocode Confidence": "100.0"
     },
-    "3": {
+    "6": {
       "Address": "3421 Clifton Ave., 21217",
       "Neighborhood": "Mount Holly",
       "Latitude": "39.310247",
       "Longitude": "-76.675170",
       "Geocode Confidence": "99.61"
     },
-    "4": {
+    "7": {
       "Address": "937 Bennett Pl., 21223",
       "Neighborhood": "Harlem Park",
       "Latitude": "39.294878",
       "Longitude": "-76.633228",
-      "Geocode Confidence": "100.0"
-    },
-    "5": {
-      "Address": "2400 Boston St., 21224",
-      "Neighborhood": "Canton",
-      "Latitude": "39.281742",
-      "Longitude": "-76.581892",
-      "Geocode Confidence": "100.0"
-    },
-    "6": {
-      "Address": "2045 Harford Rd., 21218",
-      "Neighborhood": "East Baltimore Midway",
-      "Latitude": "39.313676",
-      "Longitude": "-76.597977",
-      "Geocode Confidence": "100.0"
-    },
-    "7": {
-      "Address": "4501 York Rd., 21212",
-      "Neighborhood": "Wilson Park",
-      "Latitude": "39.343642",
-      "Longitude": "-76.609212",
       "Geocode Confidence": "100.0"
     }
   }

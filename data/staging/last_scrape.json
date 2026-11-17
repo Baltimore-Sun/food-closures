@@ -1,9 +1,30 @@
 {
-  "scraped_at": "2026-11-13T11:19:17-05:00",
+  "scraped_at": "2026-11-17T10:59:57-05:00",
   "mode": "recent",
   "days": 14,
-  "fingerprint": "8cb5218b2653311ecc35decfa968555af1ec4bced0b7b73e544ff5d1f6165d3b",
+  "fingerprint": "36e9bb3d2f7aa04d6ea3a651701c79b0d83becbcd45f7a2e37cc1fb737ad9abf",
   "rows": [
+    {
+      "Establishment": "Clipper Mill Inn",
+      "Address": "1619 Union Ave., 21211",
+      "Closure reason": "Rodent infestation, general unsanitary conditions, repeat violations",
+      "Closure date": "11/16/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "G & G Supermarket Inc.",
+      "Address": "2344 Annapolis Rd., 21230",
+      "Closure reason": "No hot water throughout facility",
+      "Closure date": "11/16/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "Piazza 27",
+      "Address": "900 Cathedral St., 21201",
+      "Closure reason": "Operating without a valid license",
+      "Closure date": "11/10/2026",
+      "Date approved to re-open": "None reported yet"
+    },
     {
       "Establishment": "AAA Carryout",
       "Address": "451 E. 22nd St., 21218",
@@ -31,27 +52,6 @@
       "Closure reason": "Insufficient refrigeration",
       "Closure date": "11/4/2026",
       "Date approved to re-open": "11/6/2026"
-    },
-    {
-      "Establishment": "Spice Kitchen West African Grill",
-      "Address": "2400 Boston St., 21224",
-      "Closure reason": "Adulterated foods",
-      "Closure date": "11/1/2026",
-      "Date approved to re-open": "11/4/2026"
-    },
-    {
-      "Establishment": "Wendy's",
-      "Address": "2045 Harford Rd., 21218",
-      "Closure reason": "Fire",
-      "Closure date": "10/30/2026",
-      "Date approved to re-open": "10/31/2026"
-    },
-    {
-      "Establishment": "Paradise Grill [M-0153]",
-      "Address": "4501 York Rd., 21212",
-      "Closure reason": "No hot water throughout facility",
-      "Closure date": "10/30/2026",
-      "Date approved to re-open": "None reported yet"
     }
   ]
 }
