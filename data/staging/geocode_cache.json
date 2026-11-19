@@ -1,54 +1,61 @@
 {
-  "generated": "2026-11-17T11:00:04-05:00",
+  "generated": "2026-11-19T10:41:00-05:00",
   "rows": {
     "1": {
+      "Address": "4616 Eastern Ave., 21224",
+      "Neighborhood": "Greektown",
+      "Latitude": "39.287211",
+      "Longitude": "-76.556738",
+      "Geocode Confidence": "100.0"
+    },
+    "2": {
+      "Address": "1101 Russell St., 21230",
+      "Neighborhood": "Stadium Area",
+      "Latitude": "39.278196",
+      "Longitude": "-76.623929",
+      "Geocode Confidence": "100.0"
+    },
+    "3": {
       "Address": "1619 Union Ave., 21211",
       "Neighborhood": "Hampden",
       "Latitude": "39.331817",
       "Longitude": "-76.641354",
       "Geocode Confidence": "100.0"
     },
-    "2": {
+    "4": {
       "Address": "2344 Annapolis Rd., 21230",
       "Neighborhood": "Westport",
       "Latitude": "39.261863",
       "Longitude": "-76.634979",
       "Geocode Confidence": "100.0"
     },
-    "3": {
+    "5": {
       "Address": "900 Cathedral St., 21201",
       "Neighborhood": "Mid-Town Belvedere",
       "Latitude": "39.299789",
       "Longitude": "-76.617426",
       "Geocode Confidence": "100.0"
     },
-    "4": {
+    "6": {
       "Address": "451 E. 22nd St., 21218",
       "Neighborhood": "Barclay",
       "Latitude": "39.314322",
       "Longitude": "-76.609649",
       "Geocode Confidence": "100.0"
     },
-    "5": {
+    "7": {
       "Address": "2401 Jefferson St., 21205",
       "Neighborhood": "McElderry Park",
       "Latitude": "39.296503",
       "Longitude": "-76.583424",
       "Geocode Confidence": "100.0"
     },
-    "6": {
+    "8": {
       "Address": "3421 Clifton Ave., 21217",
       "Neighborhood": "Mount Holly",
       "Latitude": "39.310247",
       "Longitude": "-76.675170",
       "Geocode Confidence": "99.61"
-    },
-    "7": {
-      "Address": "937 Bennett Pl., 21223",
-      "Neighborhood": "Harlem Park",
-      "Latitude": "39.294878",
-      "Longitude": "-76.633228",
-      "Geocode Confidence": "100.0"
     }
   }
 }

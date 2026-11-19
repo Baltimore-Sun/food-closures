@@ -1,9 +1,23 @@
 {
-  "scraped_at": "2026-11-17T10:59:57-05:00",
+  "scraped_at": "2026-11-19T10:40:54-05:00",
   "mode": "recent",
   "days": 14,
-  "fingerprint": "36e9bb3d2f7aa04d6ea3a651701c79b0d83becbcd45f7a2e37cc1fb737ad9abf",
+  "fingerprint": "deb2440d69ddb7575bae10576332c60ceb21bd535ddeadc03daa6d3149b2d952",
   "rows": [
+    {
+      "Establishment": "Eastern Pizza",
+      "Address": "4616 Eastern Ave., 21224",
+      "Closure reason": "Improper food handling, general unsanitary conditions, repeat violations",
+      "Closure date": "11/18/2026",
+      "Date approved to re-open": "None reported yet"
+    },
+    {
+      "Establishment": "Dunkin Food Truck",
+      "Address": "1101 Russell St., 21230",
+      "Closure reason": "Operating without a valid license",
+      "Closure date": "11/17/2",
+      "Date approved to re-open": "None reported yet"
+    },
     {
       "Establishment": "Clipper Mill Inn",
       "Address": "1619 Union Ave., 21211",
@@ -16,7 +30,7 @@
       "Address": "2344 Annapolis Rd., 21230",
       "Closure reason": "No hot water throughout facility",
       "Closure date": "11/16/2026",
-      "Date approved to re-open": "None reported yet"
+      "Date approved to re-open": "11/17/2026"
     },
     {
       "Establishment": "Piazza 27",
@@ -44,13 +58,6 @@
       "Address": "3421 Clifton Ave., 21217",
       "Closure reason": "Rodent infestation, repeat violations",
       "Closure date": "11/5/2026",
-      "Date approved to re-open": "11/6/2026"
-    },
-    {
-      "Establishment": "Gyro King [M-0029]",
-      "Address": "937 Bennett Pl., 21223",
-      "Closure reason": "Insufficient refrigeration",
-      "Closure date": "11/4/2026",
       "Date approved to re-open": "11/6/2026"
     }
   ]
