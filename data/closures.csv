@@ -1,9 +1,15 @@
 Establishment,Address,Neighborhood,Closure reason,Closure date,Date approved to re-open,Latitude,Longitude,Geocode Confidence
-Eastern Pizza,"4616 Eastern Ave., 21224",Greektown,"Improper food handling, general unsanitary conditions, repeat violations",11/18/2026,None reported yet,39.287211,-76.556738,100.0
-Dunkin Food Truck,"1101 Russell St., 21230",Stadium Area,Operating without a valid license,11/17/2026,None reported yet,39.278196,-76.623929,100.0
-Clipper Mill Inn,"1619 Union Ave., 21211",Hampden,"Rodent infestation, general unsanitary conditions, repeat violations",11/16/2026,None reported yet,39.331817,-76.641354,100.0
+Boz's Burger Bistro,"3101 St. Paul St., 21218",Charles Village,No hot water throughout facility,11/20/2026,None reported yet,39.325966,-76.615518,100.0
+Santa Marias,"1386 Fremont Ave, 21217",Sandtown-Winchester,"Improper hot holding, improper cold holding, general unsanitary conditions, operating without a valid license",11/20/2026,None reported yet,39.305312,-76.638227,99.64
+Oasis Restaurant and Discotec,"3919 Eastern Ave., 21224",Brewers Hill,"Rodent infestation, general unsanitary conditions, operating without a valid license",11/20/2026,None reported yet,39.286594,-76.563766,100.0
+New York Fried Chicken,"1215 W. North Ave., 21217",Druid Heights,"Rodent infestation, general unsanitary conditions, repeat violations",11/19/2026,None reported yet,39.310072,-76.637834,100.0
+Super Discount Mart,"3113-15 W. North Ave., 21217",Northwest Community Action,Operating without a valid license,11/19/2026,None reported yet,39.308676,-76.669824,99.11
+Sazon Latino Restaurant and Grill,"3720 S. Hanover St., 21225",Brooklyn,Operating without a valid license,11/19/2026,None reported yet,39.237122,-76.610472,100.0
+Eastern Pizza,"4616 Eastern Ave., 21224",Greektown,"Improper food handling, general unsanitary conditions, repeat violations",11/18/2026,11/20/2026,39.287211,-76.556738,100.0
+Drip Kreationz (Illegal Vendor),5668 The Alameda,Glen Oaks,Operating without a valid license,11/18/2026,None reported yet,39.360071,-76.594994,100.0
+Dunkin Food Truck,"1101 Russell St., 21230",Stadium Area,Operating without a valid license,11/17/2,None reported yet,39.278196,-76.623929,100.0
+Clipper Mill Inn,"1619 Union Ave., 21211",Hampden,"Rodent infestation, general unsanitary conditions, repeat violations",11/16/2026,11/20/2026,39.331817,-76.641354,100.0
 G & G Supermarket Inc.,"2344 Annapolis Rd., 21230",Westport,No hot water throughout facility,11/16/2026,11/17/2026,39.261863,-76.634979,100.0
 Piazza 27,"900 Cathedral St., 21201",Mid-Town Belvedere,Operating without a valid license,11/10/2026,None reported yet,39.299789,-76.617426,100.0
-AAA Carryout,"451 E. 22nd St., 21218",Barclay,"Rodent infestation, general unsanitary conditions",11/9/2026,None reported yet,39.314322,-76.609649,100.0
-Big Brothers Mini,"2401 Jefferson St., 21205",McElderry Park,"Insect infestation, general unsanitary conditions",11/9/2026,None reported yet,39.296503,-76.583424,100.0
-China Garden,"3421 Clifton Ave., 21217",Mount Holly,"Rodent infestation, repeat violations",11/5/2026,11/6/2026,39.310247,-76.675170,99.61
+AAA Carryout,"451 E. 22nd St., 21218",Barclay,"Rodent infestation, general unsanitary conditions",11/9/2026,11/13/2026,39.314322,-76.609649,100.0
+Big Brothers Mini,"2401 Jefferson St., 21205",McElderry Park,"Insect infestation, general unsanitary conditions",11/9/2026,11/12/2026,39.296503,-76.583424,100.0
