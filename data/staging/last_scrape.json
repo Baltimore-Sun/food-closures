@@ -1,9 +1,16 @@
 {
-  "scraped_at": "2026-11-23T11:59:15-05:00",
+  "scraped_at": "2026-11-24T09:59:14-05:00",
   "mode": "recent",
   "days": 14,
-  "fingerprint": "09814fd66a88d391cc05b6396bc4356b14bd0c36f2de414d8ebfe674e5fa97ce",
+  "fingerprint": "2ba5a32bd7e915ab605d24b9ddda486c15e4667b43ad760ac343306c455fa316",
   "rows": [
+    {
+      "Establishment": "Capital Lounge",
+      "Address": "1531 Pennsylvania Ave., 21217",
+      "Closure reason": "Rodent infestation, general unsanitary conditions, repeat violations",
+      "Closure date": "11/23/2026",
+      "Date approved to re-open": "None reported yet"
+    },
     {
       "Establishment": "Boz's Burger Bistro",
       "Address": "3101 St. Paul St., 21218",
@@ -64,7 +71,7 @@
       "Establishment": "Dunkin Food Truck",
       "Address": "1101 Russell St., 21230",
       "Closure reason": "Operating without a valid license",
-      "Closure date": "11/17/2",
+      "Closure date": "11/17/2026",
       "Date approved to re-open": "None reported yet"
     },
     {
@@ -87,20 +94,6 @@
       "Closure reason": "Operating without a valid license",
       "Closure date": "11/10/2026",
       "Date approved to re-open": "None reported yet"
-    },
-    {
-      "Establishment": "AAA Carryout",
-      "Address": "451 E. 22nd St., 21218",
-      "Closure reason": "Rodent infestation, general unsanitary conditions",
-      "Closure date": "11/9/2026",
-      "Date approved to re-open": "11/13/2026"
-    },
-    {
-      "Establishment": "Big Brothers Mini",
-      "Address": "2401 Jefferson St., 21205",
-      "Closure reason": "Insect infestation, general unsanitary conditions",
-      "Closure date": "11/9/2026",
-      "Date approved to re-open": "11/12/2026"
     }
   ]
 }

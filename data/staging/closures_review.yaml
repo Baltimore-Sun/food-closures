@@ -14,106 +14,104 @@
 #
 # The next scrape overwrites this file, so publish any edits first.
 #
-# Data unchanged since previous scrape (Nov 23, 2026, 11:48 AM EST).
+# Changes since previous scrape (Nov 23, 2026, 11:59 AM EST): 2 new, 2 aged out, 1 removed.
+#   New: Capital Lounge (11/23/2026)
+#   New: Dunkin Food Truck (11/17/2026)
+#   Aged out: AAA Carryout (11/9/2026)
+#   Aged out: Big Brothers Mini (11/9/2026)
+#   Removed by the city: Dunkin Food Truck (11/17/2)
 #
-# Scrape run: 2026-11-23T11:59:15-05:00
+# Scrape run: 2026-11-24T09:59:14-05:00
 # Source: https://www.baltimorecity.gov/health/our-work/permits-regulations/public-health/recent-food-establishment-closures
 # Mode: recent (days=14)
 
 - id: 1
+  Establishment: "Capital Lounge"
+  Address: "1531 Pennsylvania Ave., 21217"
+  Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
+  Closure date: "11/23/2026"
+  Date approved to re-open: "None reported yet"
+
+- id: 2
   Establishment: "Boz's Burger Bistro"
   Address: "3101 St. Paul St., 21218"
   Closure reason: "No hot water throughout facility"
   Closure date: "11/20/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 2
+- id: 3
   Establishment: "Santa Marias"
   Address: "1386 Fremont Ave, 21217"
   Closure reason: "Improper hot holding, improper cold holding, general unsanitary conditions, operating without a valid license"
   Closure date: "11/20/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 3
+- id: 4
   Establishment: "Oasis Restaurant and Discotec"
   Address: "3919 Eastern Ave., 21224"
   Closure reason: "Rodent infestation, general unsanitary conditions, operating without a valid license"
   Closure date: "11/20/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 4
+- id: 5
   Establishment: "New York Fried Chicken"
   Address: "1215 W. North Ave., 21217"
   Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
   Closure date: "11/19/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 5
+- id: 6
   Establishment: "Super Discount Mart"
   Address: "3113-15 W. North Ave., 21217"
   Closure reason: "Operating without a valid license"
   Closure date: "11/19/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 6
+- id: 7
   Establishment: "Sazon Latino Restaurant and Grill"
   Address: "3720 S. Hanover St., 21225"
   Closure reason: "Operating without a valid license"
   Closure date: "11/19/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 7
+- id: 8
   Establishment: "Eastern Pizza"
   Address: "4616 Eastern Ave., 21224"
   Closure reason: "Improper food handling, general unsanitary conditions, repeat violations"
   Closure date: "11/18/2026"
   Date approved to re-open: "11/20/2026"
 
-- id: 8
+- id: 9
   Establishment: "Drip Kreationz (Illegal Vendor)"
   Address: "5668 The Alameda"
   Closure reason: "Operating without a valid license"
   Closure date: "11/18/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 9
+- id: 10
   Establishment: "Dunkin Food Truck"
   Address: "1101 Russell St., 21230"
   Closure reason: "Operating without a valid license"
-  Closure date: "11/17/2"
+  Closure date: "11/17/2026"
   Date approved to re-open: "None reported yet"
 
-- id: 10
+- id: 11
   Establishment: "Clipper Mill Inn"
   Address: "1619 Union Ave., 21211"
   Closure reason: "Rodent infestation, general unsanitary conditions, repeat violations"
   Closure date: "11/16/2026"
   Date approved to re-open: "11/20/2026"
 
-- id: 11
+- id: 12
   Establishment: "G & G Supermarket Inc."
   Address: "2344 Annapolis Rd., 21230"
   Closure reason: "No hot water throughout facility"
   Closure date: "11/16/2026"
   Date approved to re-open: "11/17/2026"
 
-- id: 12
+- id: 13
   Establishment: "Piazza 27"
   Address: "900 Cathedral St., 21201"
   Closure reason: "Operating without a valid license"
   Closure date: "11/10/2026"
   Date approved to re-open: "None reported yet"
-
-- id: 13
-  Establishment: "AAA Carryout"
-  Address: "451 E. 22nd St., 21218"
-  Closure reason: "Rodent infestation, general unsanitary conditions"
-  Closure date: "11/9/2026"
-  Date approved to re-open: "11/13/2026"
-
-- id: 14
-  Establishment: "Big Brothers Mini"
-  Address: "2401 Jefferson St., 21205"
-  Closure reason: "Insect infestation, general unsanitary conditions"
-  Closure date: "11/9/2026"
-  Date approved to re-open: "11/12/2026"
