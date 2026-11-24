@@ -1,6 +1,5 @@
-Publish run: 2026-11-23T12:30:38-05:00
+Publish run: 2026-11-24T10:10:27-05:00
 Review file: data/staging/closures_review.yaml
 Published to: data/closures.csv
 
-1 warning(s):
-2026-11-23 12:30:38 ET WARNING record #9 (id 9) "Dunkin Food Truck": Closure date '11/17/2' did not parse; inferred 2026-11-17 from the surrounding rows.
+No warnings for this run.
